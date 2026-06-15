@@ -730,12 +730,23 @@ def ver_sesion_usuario(user_id, sesion_id):
     return render_template('ver_sesion_usuario.html', session=session)
 
 
+_initialized = False
+
+@app.before_request
+def init_app():
+    global _initialized
+    if not _initialized:
+        _initialized = True
+        try:
+            migrate_db()
+            seed_exercises()
+        except Exception as e:
+            import sys
+            print(f'Init error: {e}', file=sys.stderr)
+
+
 if __name__ == '__main__':
     with app.app_context():
         migrate_db()
         seed_exercises()
     app.run(host='0.0.0.0', port=5000, debug=True)
-else:
-    with app.app_context():
-        migrate_db()
-        seed_exercises()
