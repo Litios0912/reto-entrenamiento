@@ -11,7 +11,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'cambia-esta-clave-123')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///entrenamiento.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
+    'DATABASE_URL', 'sqlite:///entrenamiento.db').replace('postgres://', 'postgresql://')
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
