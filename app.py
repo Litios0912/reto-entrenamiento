@@ -150,6 +150,16 @@ def seed_exercises():
     db.session.commit()
 
 
+def migrate_db():
+    db.create_all()
+    try:
+        db.session.execute(db.text('SELECT is_admin FROM "user" LIMIT 1'))
+    except Exception:
+        db.session.execute(
+            db.text('ALTER TABLE "user" ADD COLUMN is_admin BOOLEAN DEFAULT 0'))
+        db.session.commit()
+
+
 def get_multa():
     s = Setting.query.get('multa_por_dia')
     return int(s.value) if s else int(os.environ.get('MULTA_POR_DIA', 50))
@@ -464,6 +474,10 @@ def ver_sesion_usuario(user_id, sesion_id):
 
 if __name__ == '__main__':
     with app.app_context():
-        db.create_all()
+        migrate_db()
         seed_exercises()
     app.run(host='0.0.0.0', port=5000, debug=True)
+else:
+    with app.app_context():
+        migrate_db()
+        seed_exercises()
