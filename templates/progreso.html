@@ -11,7 +11,7 @@
                 <th>Usuario</th>
                 <th>Entrenó</th>
                 <th>Descansó</th>
-                <th>Ejercicios</th>
+                <th>🔥 Racha</th>
                 <th>Sanción</th>
                 <th>Estado</th>
             </tr>
@@ -31,7 +31,7 @@
                 </td>
                 <td><strong>{{ r.trained_days }}</strong>/5</td>
                 <td>{{ r.days_rested }}</td>
-                <td>{{ r.total_exercises }}</td>
+                <td>{% if r.streak %}🔥 {{ r.streak }}{% else %}-{% endif %}</td>
                 <td class="penalty">{% if r.penalty > 0 %}${{ r.penalty }}{% else %}-{% endif %}</td>
                 <td>{% if r.cumple %}✅{% else %}❌{% endif %}</td>
             </tr>

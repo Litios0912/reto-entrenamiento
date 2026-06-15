@@ -15,18 +15,22 @@
         </div>
     </div>
 
+    {% set ns = namespace(total_vol=0) %}
     <h2>Ejercicios</h2>
-
     {% if session.exercises %}
         <div class="exercise-list">
             {% for ej in session.exercises %}
+                {% set vol = ej.sets|default(0) * ej.reps|default(0) * ej.weight_kg|default(0) %}
+                {% set ns.total_vol = ns.total_vol + vol %}
                 <div class="exercise-card">
                     <div class="ex-header">
                         <span class="ex-name">{{ ej.name }}</span>
                         <span class="ex-cat badge-cat-{{ ej.category or 'free' }}">
                             {{ {'gym':'🏋️','cardio':'🏃','free':'🤸'}[ej.category or 'free'] }}
-                            {{ ej.category or 'libre' }}
                         </span>
+                        {% if vol %}
+                            <span class="ex-volume">{{ vol }} kg</span>
+                        {% endif %}
                         <a href="{{ url_for('eliminar_ejercicio', ej_id=ej.id) }}"
                            class="ex-delete"
                            onclick="return confirm('¿Eliminar {{ ej.name }}?')">✕</a>
@@ -51,6 +55,9 @@
                 </div>
             {% endfor %}
         </div>
+        {% if ns.total_vol %}
+            <div class="total-volume">Volumen total: <strong>{{ ns.total_vol }} kg</strong></div>
+        {% endif %}
     {% else %}
         <div class="empty-state">Aún no has agregado ejercicios</div>
     {% endif %}
@@ -63,6 +70,9 @@
             <datalist id="ex-list">
                 {% for t in templates %}
                     <option value="{{ t.name }}" data-cat="{{ t.category }}">
+                {% endfor %}
+                {% for c in custom %}
+                    <option value="{{ c.name }}" data-cat="{{ c.category }}">
                 {% endfor %}
             </datalist>
 

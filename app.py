@@ -1,7 +1,9 @@
 import os
+import csv
+from io import StringIO
 from datetime import date, datetime, timedelta
 from functools import wraps
-from flask import Flask, render_template, redirect, url_for, request, flash
+from flask import Flask, render_template, redirect, url_for, request, flash, Response
 from flask_login import (
     LoginManager, UserMixin, login_user, login_required,
     logout_user, current_user
@@ -17,8 +19,6 @@ db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
-MULTA_POR_DIA = int(os.environ.get('MULTA_POR_DIA', 50))
-
 # ─── Modelos ────────────────────────────────────────────────────────
 
 class User(UserMixin, db.Model):
@@ -28,6 +28,9 @@ class User(UserMixin, db.Model):
     is_admin = db.Column(db.Boolean, default=False)
     sessions = db.relationship('TrainingSession', backref='user', lazy=True,
                                 order_by='TrainingSession.date.desc()')
+    body_weights = db.relationship('BodyWeight', backref='user', lazy=True,
+                                    order_by='BodyWeight.date.desc()')
+    custom_exercises = db.relationship('CustomExercise', backref='user', lazy=True)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -49,6 +52,8 @@ class TrainingSession(db.Model):
     notes = db.Column(db.Text)
     exercises = db.relationship('ExerciseLog', backref='session', lazy=True,
                                  order_by='ExerciseLog.id')
+    comments = db.relationship('Comment', backref='session', lazy=True,
+                                order_by='Comment.created_at')
 
     __table_args__ = (db.UniqueConstraint('user_id', 'date'),)
 
@@ -58,18 +63,48 @@ class ExerciseLog(db.Model):
     session_id = db.Column(db.Integer, db.ForeignKey('training_session.id'),
                            nullable=False)
     name = db.Column(db.String(100), nullable=False)
-    category = db.Column(db.String(20))  # gym, cardio, free
+    category = db.Column(db.String(20))
     sets = db.Column(db.Integer)
     reps = db.Column(db.Integer)
     weight_kg = db.Column(db.Float)
     distance_km = db.Column(db.Float)
     time_minutes = db.Column(db.Float)
 
+    def volume(self):
+        if self.sets and self.reps and self.weight_kg:
+            return self.sets * self.reps * self.weight_kg
+        return 0
+
 
 class ExerciseTemplate(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
-    category = db.Column(db.String(20), nullable=False)  # gym, cardio, free
+    category = db.Column(db.String(20), nullable=False)
+
+
+class BodyWeight(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    date = db.Column(db.Date, nullable=False)
+    weight_kg = db.Column(db.Float, nullable=False)
+    __table_args__ = (db.UniqueConstraint('user_id', 'date'),)
+
+
+class Comment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.Integer, db.ForeignKey('training_session.id'),
+                           nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    text = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    author = db.relationship('User', lazy=True)
+
+
+class CustomExercise(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    category = db.Column(db.String(20), default='free')
 
 
 # ─── Ejercicios predefinidos ────────────────────────────────────────
@@ -109,12 +144,52 @@ def week_range():
     return monday, sunday
 
 
+def month_range(year, month):
+    first = date(year, month, 1)
+    if month == 12:
+        last = date(year + 1, 1, 1) - timedelta(days=1)
+    else:
+        last = date(year, month + 1, 1) - timedelta(days=1)
+    return first, last
+
+
 def get_sessions_in_range(user_id, start, end):
     return TrainingSession.query.filter(
         TrainingSession.user_id == user_id,
         TrainingSession.date >= start,
         TrainingSession.date <= end
     ).all()
+
+
+def get_streak(user_id):
+    sessions = TrainingSession.query.filter_by(user_id=user_id)\
+        .order_by(TrainingSession.date.desc()).all()
+    if not sessions:
+        return 0
+    streak = 0
+    today = date.today()
+    check = today
+    for session in sessions:
+        if session.date == check:
+            streak += 1
+            check -= timedelta(days=1)
+        elif session.date < check and streak == 0:
+            if today - session.date > timedelta(days=1):
+                break
+            check = session.date - timedelta(days=1)
+            streak += 1
+        else:
+            break
+    return streak
+
+
+def get_weekly_volume(user_id, monday, sunday):
+    sessions = get_sessions_in_range(user_id, monday, sunday)
+    total = 0
+    for s in sessions:
+        for e in s.exercises:
+            total += e.volume()
+    return total
 
 
 def all_users_week_progress():
@@ -129,7 +204,6 @@ def all_users_week_progress():
         penalty = 0
         if trained_days < 5:
             penalty = (5 - trained_days) * multa
-        total_exercises = sum(len(s.exercises) for s in sessions)
         results.append({
             'user': user,
             'trained_days': trained_days,
@@ -137,8 +211,7 @@ def all_users_week_progress():
             'penalty': penalty,
             'trained_dates': trained_dates,
             'cumple': trained_days >= 5,
-            'total_exercises': total_exercises,
-            'sessions': sessions,
+            'streak': get_streak(user.id),
         })
     return results, monday, sunday, multa
 
@@ -153,12 +226,12 @@ def seed_exercises():
 
 def migrate_db():
     db.create_all()
-    try:
-        db.session.execute(db.text('SELECT is_admin FROM "user" LIMIT 1'))
-    except Exception:
-        db.session.execute(
-            db.text('ALTER TABLE "user" ADD COLUMN is_admin BOOLEAN DEFAULT 0'))
-        db.session.commit()
+    for col in ['is_admin']:
+        try:
+            db.session.execute(db.text(f'SELECT {col} FROM "user" LIMIT 1'))
+        except Exception:
+            db.session.execute(db.text(f'ALTER TABLE "user" ADD COLUMN {col} BOOLEAN DEFAULT 0'))
+            db.session.commit()
 
 
 def get_multa():
@@ -252,12 +325,17 @@ def dashboard():
         user_id=current_user.id, date=today).first()
     week_days = [(monday + timedelta(days=i)) for i in range(7)]
     day_names = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom']
+    streak = get_streak(current_user.id)
+    weekly_volume = get_weekly_volume(current_user.id, monday, sunday)
+    last_weight = BodyWeight.query.filter_by(user_id=current_user.id)\
+        .order_by(BodyWeight.date.desc()).first()
     return render_template('dashboard.html',
         monday=monday, sunday=sunday, today=today,
         trained_count=trained_count, trained_dates=trained_dates,
         today_session=today_session, penalty=penalty,
         cumple=trained_count >= 5, week_days=week_days,
-        day_names=day_names)
+        day_names=day_names, streak=streak,
+        weekly_volume=weekly_volume, last_weight=last_weight)
 
 
 # ─── Registrar sesión ───────────────────────────────────────────────
@@ -271,7 +349,6 @@ def registrar():
                 request.form['date'], '%Y-%m-%d').date()
         except (ValueError, KeyError):
             session_date = date.today()
-        # check existing
         existing = TrainingSession.query.filter_by(
             user_id=current_user.id, date=session_date).first()
         if existing:
@@ -300,8 +377,9 @@ def ver_sesion(sesion_id):
         return redirect(url_for('dashboard'))
     templates = ExerciseTemplate.query.order_by(
         ExerciseTemplate.category, ExerciseTemplate.name).all()
+    custom = CustomExercise.query.filter_by(user_id=current_user.id).all()
     return render_template('sesion.html', session=session,
-                           templates=templates)
+                           templates=templates, custom=custom)
 
 
 @app.route('/sesion/<int:sesion_id>/agregar', methods=['POST'])
@@ -379,10 +457,163 @@ def eliminar_sesion(sesion_id):
         return redirect(url_for('dashboard'))
     for ej in session.exercises:
         db.session.delete(ej)
+    for c in session.comments:
+        db.session.delete(c)
     db.session.delete(session)
     db.session.commit()
     flash('Sesión eliminada')
     return redirect(url_for('dashboard'))
+
+
+# ─── Comentarios ────────────────────────────────────────────────────
+
+@app.route('/sesion/<int:sesion_id>/comentar', methods=['POST'])
+@login_required
+def comentar(sesion_id):
+    session = db.session.get(TrainingSession, sesion_id)
+    if not session:
+        flash('Sesión no encontrada')
+        return redirect(url_for('dashboard'))
+    text = request.form.get('text', '').strip()
+    if not text:
+        flash('Escribe un comentario')
+    else:
+        c = Comment(session_id=sesion_id, user_id=current_user.id, text=text)
+        db.session.add(c)
+        db.session.commit()
+        flash('Comentario agregado')
+    return redirect(url_for('ver_sesion_usuario',
+        user_id=session.user_id, sesion_id=sesion_id))
+
+
+# ─── Ejercicios personalizados ──────────────────────────────────────
+
+@app.route('/ejercicios-personalizados', methods=['GET', 'POST'])
+@login_required
+def ejercicios_personalizados():
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        category = request.form.get('category', 'free')
+        if not name:
+            flash('Escribe el nombre')
+        elif CustomExercise.query.filter_by(user_id=current_user.id, name=name).first():
+            flash('Ya tienes ese ejercicio')
+        else:
+            db.session.add(CustomExercise(
+                user_id=current_user.id, name=name, category=category))
+            db.session.commit()
+            flash(f'{name} creado')
+        return redirect(url_for('ejercicios_personalizados'))
+    exercises = CustomExercise.query.filter_by(user_id=current_user.id).all()
+    return render_template('ejercicios_personalizados.html', exercises=exercises)
+
+
+@app.route('/ejercicio-personalizado/<int:ex_id>/eliminar')
+@login_required
+def eliminar_ejercicio_personalizado(ex_id):
+    ex = db.session.get(CustomExercise, ex_id)
+    if not ex or ex.user_id != current_user.id:
+        flash('Ejercicio no encontrado')
+        return redirect(url_for('ejercicios_personalizados'))
+    db.session.delete(ex)
+    db.session.commit()
+    return redirect(url_for('ejercicios_personalizados'))
+
+
+# ─── Peso corporal ──────────────────────────────────────────────────
+
+@app.route('/peso', methods=['GET', 'POST'])
+@login_required
+def peso():
+    if request.method == 'POST':
+        try:
+            w = float(request.form['weight'])
+            d = request.form.get('date') or str(date.today())
+            d = datetime.strptime(d, '%Y-%m-%d').date()
+        except (ValueError, KeyError):
+            flash('Datos inválidos')
+            return redirect(url_for('peso'))
+        if w <= 0 or w > 300:
+            flash('Peso inválido')
+            return redirect(url_for('peso'))
+        existing = BodyWeight.query.filter_by(
+            user_id=current_user.id, date=d).first()
+        if existing:
+            existing.weight_kg = w
+        else:
+            db.session.add(BodyWeight(
+                user_id=current_user.id, date=d, weight_kg=w))
+        db.session.commit()
+        flash('Peso registrado')
+        return redirect(url_for('peso'))
+    records = BodyWeight.query.filter_by(user_id=current_user.id)\
+        .order_by(BodyWeight.date.desc()).all()
+    return render_template('peso.html', records=records, today=date.today())
+
+
+# ─── Historial mensual ──────────────────────────────────────────────
+
+@app.route('/historial')
+@login_required
+def historial():
+    today = date.today()
+    return redirect(url_for('historial_mes', year=today.year, month=today.month))
+
+
+@app.route('/historial/<int:year>/<int:month>')
+@login_required
+def historial_mes(year, month):
+    first, last = month_range(year, month)
+    sessions = TrainingSession.query.filter(
+        TrainingSession.user_id == current_user.id,
+        TrainingSession.date >= first,
+        TrainingSession.date <= last
+    ).order_by(TrainingSession.date.desc()).all()
+    total_volume = sum(
+        e.volume() for s in sessions for e in s.exercises)
+    total_duration = sum(s.duration_minutes or 0 for s in sessions)
+    month_name = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                  'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+    prev_m = month - 1 or 12
+    prev_y = year if month > 1 else year - 1
+    next_m = month + 1 if month < 12 else 1
+    next_y = year if month < 12 else year + 1
+    return render_template('historial.html',
+        sessions=sessions, year=year, month=month,
+        month_name=month_name[month-1],
+        total_sessions=len(sessions),
+        total_volume=round(total_volume),
+        total_duration=total_duration,
+        prev_m=prev_m, prev_y=prev_y,
+        next_m=next_m, next_y=next_y,
+        today=date.today())
+
+
+# ─── Exportar CSV ───────────────────────────────────────────────────
+
+@app.route('/exportar')
+@login_required
+def exportar():
+    sessions = TrainingSession.query.filter_by(user_id=current_user.id)\
+        .order_by(TrainingSession.date).all()
+    output = StringIO()
+    w = csv.writer(output)
+    w.writerow(['Fecha','Duración(min)','Notas','Ejercicio','Categoría',
+                'Series','Reps','Peso(kg)','Distancia(km)','Tiempo(min)'])
+    for s in sessions:
+        if s.exercises:
+            for e in s.exercises:
+                w.writerow([s.date, s.duration_minutes, s.notes,
+                    e.name, e.category, e.sets, e.reps, e.weight_kg,
+                    e.distance_km, e.time_minutes])
+        else:
+            w.writerow([s.date, s.duration_minutes, s.notes,
+                        '','','','','','',''])
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition':
+                 'attachment;filename=entrenamientos.csv'})
 
 
 # ─── Progreso grupal ────────────────────────────────────────────────
@@ -458,14 +689,20 @@ def admin_eliminar_usuario(user_id):
     for s in user.sessions:
         for e in s.exercises:
             db.session.delete(e)
+        for c in s.comments:
+            db.session.delete(c)
         db.session.delete(s)
+    for w in user.body_weights:
+        db.session.delete(w)
+    for ce in user.custom_exercises:
+        db.session.delete(ce)
     db.session.delete(user)
     db.session.commit()
     flash(f'Usuario {user.username} eliminado')
     return redirect(url_for('admin'))
 
 
-# ─── Ver sesión de otro usuario (solo lectura) ──────────────────────
+# ─── Ver sesión de otro usuario ─────────────────────────────────────
 
 @app.route('/usuario/<int:user_id>/sesion/<int:sesion_id>')
 @login_required

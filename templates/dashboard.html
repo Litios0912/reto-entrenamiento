@@ -4,6 +4,21 @@
     <h1>Mi semana</h1>
     <p class="week-range">{{ monday.strftime('%d/%m') }} - {{ sunday.strftime('%d/%m') }}</p>
 
+    <div class="stats-row">
+        <div class="stat-card">
+            <span class="stat-num">{{ streak }}</span>
+            <span class="stat-label">🔥 racha</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-num">{{ weekly_volume }}</span>
+            <span class="stat-label">kg volumen</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-num">{{ last_weight.weight_kg if last_weight else '--' }}</span>
+            <span class="stat-label">kg peso</span>
+        </div>
+    </div>
+
     <div class="progress-circle {{ 'cumple' if cumple else 'nocumple' }}">
         <span class="big-number">{{ trained_count }}</span>
         <span class="label">/ 5 días</span>

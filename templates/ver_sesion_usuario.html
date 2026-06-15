@@ -16,12 +16,16 @@
     {% if session.exercises %}
         <div class="exercise-list">
             {% for ej in session.exercises %}
+                {% set vol = ej.sets|default(0) * ej.reps|default(0) * ej.weight_kg|default(0) %}
                 <div class="exercise-card">
                     <div class="ex-header">
                         <span class="ex-name">{{ ej.name }}</span>
                         <span class="ex-cat badge-cat-{{ ej.category or 'free' }}">
                             {{ {'gym':'🏋️','cardio':'🏃','free':'🤸'}[ej.category or 'free'] }}
                         </span>
+                        {% if vol %}
+                            <span class="ex-volume">{{ vol }} kg</span>
+                        {% endif %}
                     </div>
                     <div class="ex-details">
                         {% if ej.sets %}
@@ -46,5 +50,22 @@
     {% else %}
         <div class="empty-state">Sin ejercicios registrados</div>
     {% endif %}
+
+    <div class="comments-section">
+        <h2>Comentarios</h2>
+        {% if session.comments %}
+            {% for c in session.comments %}
+                <div class="comment">
+                    <span class="comment-author">{{ c.author.username }}</span>
+                    <span class="comment-text">{{ c.text }}</span>
+                    <span class="comment-date">{{ c.created_at.strftime('%d/%m %H:%M') }}</span>
+                </div>
+            {% endfor %}
+        {% endif %}
+        <form method="POST" action="{{ url_for('comentar', sesion_id=session.id) }}" class="comment-form">
+            <input type="text" name="text" placeholder="Escribe un comentario..." required>
+            <button type="submit">Enviar</button>
+        </form>
+    </div>
 </div>
 {% endblock %}

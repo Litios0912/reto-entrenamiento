@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="form-page">
+    <h1>Mis ejercicios</h1>
+
+    <form method="POST">
+        <input type="text" name="name" placeholder="Nombre del ejercicio" required>
+        <select name="category">
+            <option value="gym">🏋️ Gym</option>
+            <option value="cardio">🏃 Cardio</option>
+            <option value="free">🤸 Libre</option>
+        </select>
+        <button type="submit">Crear ejercicio</button>
+    </form>
+
+    {% if exercises %}
+        <div class="exercise-list" style="margin-top:20px">
+            {% for ex in exercises %}
+                <div class="exercise-card">
+                    <div class="ex-header">
+                        <span class="ex-name">{{ ex.name }}</span>
+                        <span class="ex-cat badge-cat-{{ ex.category }}">
+                            {{ {'gym':'🏋️','cardio':'🏃','free':'🤸'}[ex.category] }}
+                        </span>
+                        <a href="{{ url_for('eliminar_ejercicio_personalizado', ex_id=ex.id) }}"
+                           class="ex-delete"
+                           onclick="return confirm('¿Eliminar {{ ex.name }}?')">✕</a>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state">Crea tus propios ejercicios</div>
+    {% endif %}
+</div>
+{% endblock %}

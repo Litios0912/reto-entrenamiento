@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="historial-page">
+    <div class="month-nav">
+        <a href="{{ url_for('historial_mes', year=prev_y, month=prev_m) }}" class="btn-link">← {{ prev_m }}/{{ prev_y }}</a>
+        <h1>{{ month_name }} {{ year }}</h1>
+        {% if year < today.year or (year == today.year and month < today.month) %}
+            <a href="{{ url_for('historial_mes', year=next_y, month=next_m) }}" class="btn-link">{{ next_m }}/{{ next_y }} →</a>
+        {% else %}
+            <span class="btn-link disabled">→</span>
+        {% endif %}
+    </div>
+
+    <div class="stats-row">
+        <div class="stat-card">
+            <span class="stat-num">{{ total_sessions }}</span>
+            <span class="stat-label">entrenos</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-num">{{ total_volume }}</span>
+            <span class="stat-label">kg volumen</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-num">{{ (total_duration / 60)|round(1) if total_duration > 60 else total_duration }}</span>
+            <span class="stat-label">{{ 'horas' if total_duration > 60 else 'min' }}</span>
+        </div>
+    </div>
+
+    {% if sessions %}
+        {% for s in sessions %}
+            <div class="session-card">
+                <div class="session-card-header">
+                    <a href="{{ url_for('ver_sesion', sesion_id=s.id) }}" class="sesion-link">
+                        {{ s.date.strftime('%d/%m/%Y') }}
+                    </a>
+                    {% if s.duration_minutes %}
+                        <span class="badge-duration">{{ s.duration_minutes }} min</span>
+                    {% endif %}
+                    <span class="ex-count">{{ s.exercises|length }} ejercicios</span>
+                </div>
+                <div class="session-card-exercises">
+                    {% set ns = namespace(vol=0) %}
+                    {% for e in s.exercises[:5] %}
+                        <span class="ex-tag">{{ e.name }}</span>
+                        {% set ns.vol = ns.vol + (e.sets|default(0) * e.reps|default(0) * e.weight_kg|default(0)) %}
+                    {% endfor %}
+                    {% if s.exercises|length > 5 %}
+                        <span class="ex-tag">+{{ s.exercises|length - 5 }} más</span>
+                    {% endif %}
+                    {% if ns.vol %}
+                        <span class="ex-tag vol-tag">{{ ns.vol }} kg</span>
+                    {% endif %}
+                </div>
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-state">Sin entrenamientos este mes</div>
+    {% endif %}
+
+    <div class="export-section">
+        <a href="{{ url_for('exportar') }}" class="btn btn-secondary">📥 Exportar CSV</a>
+    </div>
+</div>
+{% endblock %}

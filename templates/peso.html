@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="peso-page">
+    <h1>Peso corporal</h1>
+
+    <form method="POST" class="inline-form">
+        <input type="date" name="date" value="{{ today.strftime('%Y-%m-%d') }}">
+        <input type="number" name="weight" step="0.1" min="20" max="300" placeholder="kg" required>
+        <button type="submit">Registrar</button>
+    </form>
+
+    {% if records %}
+        <div class="weight-chart">
+            {% set weights = records|list %}
+            {% set max_w = weights|map(attribute='weight_kg')|max %}
+            {% set min_w = weights|map(attribute='weight_kg')|min %}
+            {% set diff = max_w - min_w if max_w > min_w else 1 %}
+            {% for r in weights[:30] %}
+                <div class="bar-wrapper" title="{{ r.date.strftime('%d/%m') }}: {{ r.weight_kg }}kg">
+                    <div class="bar" style="height: {{ ((r.weight_kg - min_w) / diff * 100 + 5)|round }}%"></div>
+                    <span class="bar-label">{{ r.weight_kg }}</span>
+                </div>
+            {% endfor %}
+        </div>
+
+        <table>
+            <thead>
+                <tr><th>Fecha</th><th>Peso</th></tr>
+            </thead>
+            <tbody>
+                {% for r in records %}
+                <tr>
+                    <td>{{ r.date.strftime('%d/%m/%Y') }}</td>
+                    <td><strong>{{ r.weight_kg }} kg</strong></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="empty-state">Registra tu primer peso</div>
+    {% endif %}
+</div>
+{% endblock %}
