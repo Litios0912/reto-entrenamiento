@@ -226,9 +226,15 @@ def seed_exercises():
 
 
 def migrate_db():
+    if os.environ.get('DATABASE_URL'):
+        try:
+            db.session.execute(db.text('ALTER TABLE "user" RENAME TO users'))
+            db.session.commit()
+        except Exception:
+            pass
     db.create_all()
     for col in ['is_admin']:
-        for tbl in ['users', '"user"']:
+        for tbl in ['users']:
             try:
                 db.session.execute(db.text(f'SELECT {col} FROM {tbl} LIMIT 1'))
                 break
