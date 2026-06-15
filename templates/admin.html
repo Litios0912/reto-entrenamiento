@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="admin-page">
+    <h1>Panel de admin</h1>
+
+    <section class="admin-section">
+        <h2>Multa por día faltante</h2>
+        <form method="POST" action="{{ url_for('admin_multa') }}" class="inline-form">
+            <input type="number" name="multa" value="{{ multa_por_dia }}" min="0" required>
+            <button type="submit">Actualizar</button>
+        </form>
+    </section>
+
+    <section class="admin-section">
+        <h2>Usuarios ({{ users|length }})</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Usuario</th>
+                    <th>Admin</th>
+                    <th>Sesiones</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                <tr>
+                    <td><strong>{{ u.username }}</strong></td>
+                    <td>{% if u.is_admin %}👑 Sí{% else %}-{% endif %}</td>
+                    <td>{{ u.sessions|length }}</td>
+                    <td>
+                        <a href="{{ url_for('admin_usuario', user_id=u.id) }}" class="btn-link">Ver</a>
+                        {% if not u.is_admin and u.id != current_user.id %}
+                            <a href="{{ url_for('admin_eliminar_usuario', user_id=u.id) }}"
+                               class="btn-link danger-link"
+                               onclick="return confirm('¿Eliminar a {{ u.username }}?')">Eliminar</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+{% endblock %}

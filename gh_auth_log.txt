@@ -1,0 +1,8 @@
+
+! First copy your one-time code: 77A2-F391
+Open this URL to continue in your web browser: https://github.com/login/device
+✓ Authentication complete.
+- gh config set -h github.com git_protocol https
+✓ Configured git protocol
+! Authentication credentials saved in plain text
+✓ Logged in as Litios0912

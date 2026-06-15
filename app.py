@@ -1,5 +1,6 @@
 import os
 from datetime import date, datetime, timedelta
+from functools import wraps
 from flask import Flask, render_template, redirect, url_for, request, flash
 from flask_login import (
     LoginManager, UserMixin, login_user, login_required,
@@ -23,6 +24,7 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(200), nullable=False)
+    is_admin = db.Column(db.Boolean, default=False)
     sessions = db.relationship('TrainingSession', backref='user', lazy=True,
                                 order_by='TrainingSession.date.desc()')
 
@@ -31,6 +33,11 @@ class User(UserMixin, db.Model):
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+
+class Setting(db.Model):
+    key = db.Column(db.String(50), primary_key=True)
+    value = db.Column(db.String(200), nullable=False)
 
 
 class TrainingSession(db.Model):
@@ -112,6 +119,7 @@ def get_sessions_in_range(user_id, start, end):
 def all_users_week_progress():
     monday, sunday = week_range()
     users = User.query.all()
+    multa = get_multa()
     results = []
     for user in users:
         sessions = get_sessions_in_range(user.id, monday, sunday)
@@ -119,7 +127,7 @@ def all_users_week_progress():
         trained_days = len(trained_dates)
         penalty = 0
         if trained_days < 5:
-            penalty = (5 - trained_days) * MULTA_POR_DIA
+            penalty = (5 - trained_days) * multa
         total_exercises = sum(len(s.exercises) for s in sessions)
         results.append({
             'user': user,
@@ -131,7 +139,7 @@ def all_users_week_progress():
             'total_exercises': total_exercises,
             'sessions': sessions,
         })
-    return results, monday, sunday
+    return results, monday, sunday, multa
 
 
 def seed_exercises():
@@ -140,6 +148,21 @@ def seed_exercises():
     for name, cat in PREDEFINED:
         db.session.add(ExerciseTemplate(name=name, category=cat))
     db.session.commit()
+
+
+def get_multa():
+    s = Setting.query.get('multa_por_dia')
+    return int(s.value) if s else int(os.environ.get('MULTA_POR_DIA', 50))
+
+
+def admin_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not current_user.is_authenticated or not current_user.is_admin:
+            flash('Acceso denegado')
+            return redirect(url_for('dashboard'))
+        return f(*args, **kwargs)
+    return decorated
 
 
 # ─── Auth ───────────────────────────────────────────────────────────
@@ -164,6 +187,8 @@ def register():
             return render_template('register.html')
         user = User(username=username)
         user.set_password(password)
+        if User.query.count() == 0:
+            user.is_admin = True
         db.session.add(user)
         db.session.commit()
         flash('Registrado correctamente. Inicia sesión.')
@@ -201,9 +226,10 @@ def dashboard():
     sessions = get_sessions_in_range(current_user.id, monday, sunday)
     trained_dates = [s.date for s in sessions]
     trained_count = len(trained_dates)
+    multa = get_multa()
     penalty = 0
     if trained_count < 5:
-        penalty = (5 - trained_count) * MULTA_POR_DIA
+        penalty = (5 - trained_count) * multa
     today_session = TrainingSession.query.filter_by(
         user_id=current_user.id, date=today).first()
     week_days = [(monday + timedelta(days=i)) for i in range(7)]
@@ -346,11 +372,79 @@ def eliminar_sesion(sesion_id):
 @app.route('/progreso')
 @login_required
 def progreso():
-    results, monday, sunday = all_users_week_progress()
+    results, monday, sunday, multa = all_users_week_progress()
     week_days = [(monday + timedelta(days=i)) for i in range(7)]
     return render_template('progreso.html',
         results=results, monday=monday, sunday=sunday,
-        multa_por_dia=MULTA_POR_DIA, week_days=week_days)
+        multa_por_dia=multa, week_days=week_days)
+
+
+# ─── Admin ──────────────────────────────────────────────────────────
+
+@app.route('/admin')
+@login_required
+@admin_required
+def admin():
+    users = User.query.all()
+    multa = get_multa()
+    return render_template('admin.html', users=users, multa_por_dia=multa)
+
+
+@app.route('/admin/multa', methods=['POST'])
+@login_required
+@admin_required
+def admin_multa():
+    try:
+        val = int(request.form['multa'])
+        if val < 0:
+            raise ValueError
+    except (ValueError, KeyError):
+        flash('Valor inválido')
+        return redirect(url_for('admin'))
+    s = Setting.query.get('multa_por_dia')
+    if s:
+        s.value = str(val)
+    else:
+        db.session.add(Setting(key='multa_por_dia', value=str(val)))
+    db.session.commit()
+    flash(f'Multa actualizada a ${val}')
+    return redirect(url_for('admin'))
+
+
+@app.route('/admin/usuario/<int:user_id>')
+@login_required
+@admin_required
+def admin_usuario(user_id):
+    user = db.session.get(User, user_id)
+    if not user:
+        flash('Usuario no encontrado')
+        return redirect(url_for('admin'))
+    sessions = TrainingSession.query.filter_by(user_id=user_id)\
+        .order_by(TrainingSession.date.desc()).all()
+    total_exercises = sum(len(s.exercises) for s in sessions)
+    return render_template('admin_usuario.html',
+        user=user, sessions=sessions, total_exercises=total_exercises)
+
+
+@app.route('/admin/usuario/<int:user_id>/eliminar')
+@login_required
+@admin_required
+def admin_eliminar_usuario(user_id):
+    user = db.session.get(User, user_id)
+    if not user:
+        flash('Usuario no encontrado')
+        return redirect(url_for('admin'))
+    if user.is_admin:
+        flash('No puedes eliminar a otro admin')
+        return redirect(url_for('admin'))
+    for s in user.sessions:
+        for e in s.exercises:
+            db.session.delete(e)
+        db.session.delete(s)
+    db.session.delete(user)
+    db.session.commit()
+    flash(f'Usuario {user.username} eliminado')
+    return redirect(url_for('admin'))
 
 
 # ─── Ver sesión de otro usuario (solo lectura) ──────────────────────
@@ -361,6 +455,9 @@ def ver_sesion_usuario(user_id, sesion_id):
     session = db.session.get(TrainingSession, sesion_id)
     if not session or session.user_id != user_id:
         flash('Sesión no encontrada')
+        return redirect(url_for('progreso'))
+    if session.user_id != current_user.id and not current_user.is_admin:
+        flash('No autorizado')
         return redirect(url_for('progreso'))
     return render_template('ver_sesion_usuario.html', session=session)
 

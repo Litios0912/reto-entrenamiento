@@ -233,3 +233,43 @@ tr.nocumple td:first-child { border-left: 3px solid #ff4444; }
 
 details > summary { list-style: none; }
 details > summary::-webkit-details-marker { display: none; }
+
+/* ─── Admin ─────────────────────────────────── */
+
+.nav-admin {
+    background: #ffaa00; color: #0f0f23 !important;
+    padding: 2px 10px; border-radius: 4px; font-weight: 700; font-size: 0.75rem;
+}
+.admin-page { }
+.admin-page h1 { text-align: center; margin-bottom: 12px; }
+.admin-section {
+    background: #1a1a3e; border-radius: 8px; padding: 16px;
+    margin-bottom: 16px;
+}
+.admin-section h2 {
+    font-size: 1rem; margin-bottom: 12px; color: #aaa;
+}
+.inline-form { display: flex; gap: 8px; align-items: center; }
+.inline-form input {
+    padding: 10px 12px; border: 1px solid #333; border-radius: 6px;
+    background: #0f0f23; color: #fff; font-size: 1rem; width: 100px;
+}
+.inline-form button {
+    padding: 10px 20px; background: #00ff88; color: #0f0f23;
+    border: none; border-radius: 6px; font-weight: 700; cursor: pointer;
+}
+.danger-link { color: #ff4444 !important; }
+.session-card {
+    background: #1a1a3e; border-radius: 8px; padding: 12px 14px;
+    margin-bottom: 8px;
+}
+.session-card-header {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+}
+.sesion-link { color: #00ff88; font-weight: 600; text-decoration: none; }
+.ex-count { font-size: 0.8rem; color: #888; margin-left: auto; }
+.session-card-exercises { display: flex; flex-wrap: wrap; gap: 4px; }
+.ex-tag {
+    background: #0f0f23; padding: 2px 8px; border-radius: 4px;
+    font-size: 0.75rem; color: #aaa;
+}

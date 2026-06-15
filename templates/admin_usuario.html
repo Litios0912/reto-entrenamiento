@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="admin-page">
+    <h1>{{ user.username }}</h1>
+    <p class="week-range">{{ total_exercises }} ejercicios en {{ sessions|length }} sesiones</p>
+
+    <a href="{{ url_for('admin') }}" class="btn-link">← Volver al panel</a>
+
+    {% if sessions %}
+        {% for s in sessions %}
+            <div class="session-card">
+                <div class="session-card-header">
+                    <a href="{{ url_for('ver_sesion_usuario', user_id=user.id, sesion_id=s.id) }}" class="sesion-link">
+                        {{ s.date.strftime('%d/%m/%Y') }}
+                    </a>
+                    {% if s.duration_minutes %}
+                        <span class="badge-duration">{{ s.duration_minutes }} min</span>
+                    {% endif %}
+                    <span class="ex-count">{{ s.exercises|length }} ejercicios</span>
+                </div>
+                <div class="session-card-exercises">
+                    {% for e in s.exercises[:5] %}
+                        <span class="ex-tag">{{ e.name }}</span>
+                    {% endfor %}
+                    {% if s.exercises|length > 5 %}
+                        <span class="ex-tag">+{{ s.exercises|length - 5 }} más</span>
+                    {% endif %}
+                </div>
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-state">Sin sesiones registradas</div>
+    {% endif %}
+</div>
+{% endblock %}
