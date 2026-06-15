@@ -197,7 +197,10 @@ def register():
             return render_template('register.html')
         user = User(username=username)
         user.set_password(password)
-        if User.query.count() == 0:
+        admin_user = os.environ.get('ADMIN_USERNAME', '').lower()
+        if admin_user and username.lower() == admin_user:
+            user.is_admin = True
+        elif not admin_user and User.query.count() == 0:
             user.is_admin = True
         db.session.add(user)
         db.session.commit()
@@ -213,6 +216,10 @@ def login():
         password = request.form['password']
         user = User.query.filter_by(username=username).first()
         if user and user.check_password(password):
+            admin_user = os.environ.get('ADMIN_USERNAME', '').lower()
+            if admin_user and username.lower() == admin_user and not user.is_admin:
+                user.is_admin = True
+                db.session.commit()
             login_user(user)
             return redirect(url_for('dashboard'))
         flash('Usuario o contraseña incorrectos')
