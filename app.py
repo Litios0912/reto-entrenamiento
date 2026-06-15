@@ -22,6 +22,7 @@ login_manager.login_view = 'login'
 # ─── Modelos ────────────────────────────────────────────────────────
 
 class User(UserMixin, db.Model):
+    __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(200), nullable=False)
@@ -46,7 +47,7 @@ class Setting(db.Model):
 
 class TrainingSession(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     date = db.Column(db.Date, nullable=False)
     duration_minutes = db.Column(db.Integer)
     notes = db.Column(db.Text)
@@ -84,7 +85,7 @@ class ExerciseTemplate(db.Model):
 
 class BodyWeight(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     date = db.Column(db.Date, nullable=False)
     weight_kg = db.Column(db.Float, nullable=False)
     __table_args__ = (db.UniqueConstraint('user_id', 'date'),)
@@ -94,7 +95,7 @@ class Comment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     session_id = db.Column(db.Integer, db.ForeignKey('training_session.id'),
                            nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     text = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     author = db.relationship('User', lazy=True)
@@ -102,7 +103,7 @@ class Comment(db.Model):
 
 class CustomExercise(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     name = db.Column(db.String(100), nullable=False)
     category = db.Column(db.String(20), default='free')
 
@@ -227,11 +228,17 @@ def seed_exercises():
 def migrate_db():
     db.create_all()
     for col in ['is_admin']:
-        try:
-            db.session.execute(db.text(f'SELECT {col} FROM "user" LIMIT 1'))
-        except Exception:
-            db.session.execute(db.text(f'ALTER TABLE "user" ADD COLUMN {col} BOOLEAN DEFAULT 0'))
-            db.session.commit()
+        for tbl in ['users', '"user"']:
+            try:
+                db.session.execute(db.text(f'SELECT {col} FROM {tbl} LIMIT 1'))
+                break
+            except Exception:
+                try:
+                    db.session.execute(db.text(f'ALTER TABLE {tbl} ADD COLUMN {col} BOOLEAN DEFAULT 0'))
+                    db.session.commit()
+                    break
+                except Exception:
+                    pass
 
 
 def get_multa():
