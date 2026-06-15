@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="form-page">
+    <h1>Editar sesión</h1>
+    <form method="POST">
+        <label>Fecha</label>
+        <input type="date" name="date" value="{{ session.date.strftime('%Y-%m-%d') }}" required>
+
+        <label>Duración (minutos)</label>
+        <input type="number" name="duration_minutes" min="1"
+               value="{{ session.duration_minutes or '' }}" placeholder="Ej: 60">
+
+        <label>Notas</label>
+        <textarea name="notes" rows="2" placeholder="Ej: Pierna, pesado">{{ session.notes or '' }}</textarea>
+
+        <button type="submit">Guardar cambios</button>
+        <a href="{{ url_for('ver_sesion', sesion_id=session.id) }}" class="btn-link">Cancelar</a>
+    </form>
+</div>
+{% endblock %}

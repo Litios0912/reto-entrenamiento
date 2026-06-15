@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="progreso">
+    <h1>Progreso del grupo</h1>
+    <p class="week-range">{{ monday.strftime('%d/%m') }} - {{ sunday.strftime('%d/%m') }}</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Usuario</th>
+                <th>Entrenó</th>
+                <th>Descansó</th>
+                <th>Ejercicios</th>
+                <th>Sanción</th>
+                <th>Estado</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in results|sort(attribute='trained_days', reverse=True) %}
+            <tr class="{{ 'cumple' if r.cumple else 'nocumple' }}">
+                <td>{{ loop.index }}</td>
+                <td class="user-cell">
+                    <span class="username">{{ r.user.username }}</span>
+                    <div class="mini-days">
+                        {% for day in week_days %}
+                            <span class="mini-day {{ 'ok' if day in r.trained_dates else 'no' }}"
+                                  title="{{ day.strftime('%a %d') }}"></span>
+                        {% endfor %}
+                    </div>
+                </td>
+                <td><strong>{{ r.trained_days }}</strong>/5</td>
+                <td>{{ r.days_rested }}</td>
+                <td>{{ r.total_exercises }}</td>
+                <td class="penalty">{% if r.penalty > 0 %}${{ r.penalty }}{% else %}-{% endif %}</td>
+                <td>{% if r.cumple %}✅{% else %}❌{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <p class="multa-info">
+        Multa: ${{ multa_por_dia }} por día faltante (máximo 2 descansos por semana)
+    </p>
+</div>
+{% endblock %}

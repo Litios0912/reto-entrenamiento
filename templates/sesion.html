@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="sesion-page">
+    <div class="sesion-header">
+        <h1>{{ session.date.strftime('%A %d/%m') }}</h1>
+        {% if session.duration_minutes %}
+            <span class="badge-duration">{{ session.duration_minutes }} min</span>
+        {% endif %}
+        {% if session.notes %}
+            <p class="notes">{{ session.notes }}</p>
+        {% endif %}
+        <div class="header-actions">
+            <a href="{{ url_for('editar_sesion', sesion_id=session.id) }}" class="btn-link">Editar</a>
+            <a href="{{ url_for('dashboard') }}" class="btn-link">Volver</a>
+        </div>
+    </div>
+
+    <h2>Ejercicios</h2>
+
+    {% if session.exercises %}
+        <div class="exercise-list">
+            {% for ej in session.exercises %}
+                <div class="exercise-card">
+                    <div class="ex-header">
+                        <span class="ex-name">{{ ej.name }}</span>
+                        <span class="ex-cat badge-cat-{{ ej.category or 'free' }}">
+                            {{ {'gym':'🏋️','cardio':'🏃','free':'🤸'}[ej.category or 'free'] }}
+                            {{ ej.category or 'libre' }}
+                        </span>
+                        <a href="{{ url_for('eliminar_ejercicio', ej_id=ej.id) }}"
+                           class="ex-delete"
+                           onclick="return confirm('¿Eliminar {{ ej.name }}?')">✕</a>
+                    </div>
+                    <div class="ex-details">
+                        {% if ej.sets %}
+                            <span class="detail"><strong>{{ ej.sets }}</strong> series</span>
+                        {% endif %}
+                        {% if ej.reps %}
+                            <span class="detail"><strong>{{ ej.reps }}</strong> reps</span>
+                        {% endif %}
+                        {% if ej.weight_kg %}
+                            <span class="detail"><strong>{{ ej.weight_kg }} kg</strong></span>
+                        {% endif %}
+                        {% if ej.distance_km %}
+                            <span class="detail"><strong>{{ ej.distance_km }} km</strong></span>
+                        {% endif %}
+                        {% if ej.time_minutes %}
+                            <span class="detail"><strong>{{ ej.time_minutes }} min</strong></span>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state">Aún no has agregado ejercicios</div>
+    {% endif %}
+
+    <details class="add-exercise-form">
+        <summary>+ Agregar ejercicio</summary>
+        <form method="POST" action="{{ url_for('agregar_ejercicio', sesion_id=session.id) }}">
+            <label>Ejercicio</label>
+            <input type="text" name="name" id="ex-name" list="ex-list" placeholder="Escribe o selecciona" required>
+            <datalist id="ex-list">
+                {% for t in templates %}
+                    <option value="{{ t.name }}" data-cat="{{ t.category }}">
+                {% endfor %}
+            </datalist>
+
+            <label>Categoría</label>
+            <select name="category">
+                <option value="gym">🏋️ Gym</option>
+                <option value="cardio">🏃 Cardio</option>
+                <option value="free">🤸 Libre</option>
+            </select>
+
+            <div class="fields-row">
+                <div class="field-group">
+                    <label>Series</label>
+                    <input type="number" name="sets" min="1" placeholder="3">
+                </div>
+                <div class="field-group">
+                    <label>Reps</label>
+                    <input type="number" name="reps" min="1" placeholder="10">
+                </div>
+                <div class="field-group">
+                    <label>Peso (kg)</label>
+                    <input type="number" name="weight_kg" step="0.5" min="0" placeholder="60">
+                </div>
+            </div>
+            <div class="fields-row">
+                <div class="field-group">
+                    <label>Distancia (km)</label>
+                    <input type="number" name="distance_km" step="0.1" min="0" placeholder="5">
+                </div>
+                <div class="field-group">
+                    <label>Tiempo (min)</label>
+                    <input type="number" name="time_minutes" step="1" min="0" placeholder="30">
+                </div>
+            </div>
+
+            <button type="submit">Agregar</button>
+        </form>
+    </details>
+</div>
+
+<script>
+document.getElementById('ex-name')?.addEventListener('input', function() {
+    const list = document.getElementById('ex-list');
+    const opt = list.querySelector(`option[value="${this.value}"]`);
+    if (opt) {
+        const cat = opt.dataset.cat;
+        const sel = document.querySelector('select[name="category"]');
+        if (sel && cat) sel.value = cat;
+    }
+});
+</script>
+{% endblock %}

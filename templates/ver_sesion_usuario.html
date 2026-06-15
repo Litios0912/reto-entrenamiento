@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="sesion-page">
+    <div class="sesion-header">
+        <h1>{{ session.user.username }} - {{ session.date.strftime('%A %d/%m') }}</h1>
+        {% if session.duration_minutes %}
+            <span class="badge-duration">{{ session.duration_minutes }} min</span>
+        {% endif %}
+        {% if session.notes %}
+            <p class="notes">{{ session.notes }}</p>
+        {% endif %}
+        <a href="{{ url_for('progreso') }}" class="btn-link">Volver al grupo</a>
+    </div>
+
+    <h2>Ejercicios</h2>
+    {% if session.exercises %}
+        <div class="exercise-list">
+            {% for ej in session.exercises %}
+                <div class="exercise-card">
+                    <div class="ex-header">
+                        <span class="ex-name">{{ ej.name }}</span>
+                        <span class="ex-cat badge-cat-{{ ej.category or 'free' }}">
+                            {{ {'gym':'🏋️','cardio':'🏃','free':'🤸'}[ej.category or 'free'] }}
+                        </span>
+                    </div>
+                    <div class="ex-details">
+                        {% if ej.sets %}
+                            <span class="detail"><strong>{{ ej.sets }}</strong> series</span>
+                        {% endif %}
+                        {% if ej.reps %}
+                            <span class="detail"><strong>{{ ej.reps }}</strong> reps</span>
+                        {% endif %}
+                        {% if ej.weight_kg %}
+                            <span class="detail"><strong>{{ ej.weight_kg }} kg</strong></span>
+                        {% endif %}
+                        {% if ej.distance_km %}
+                            <span class="detail"><strong>{{ ej.distance_km }} km</strong></span>
+                        {% endif %}
+                        {% if ej.time_minutes %}
+                            <span class="detail"><strong>{{ ej.time_minutes }} min</strong></span>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state">Sin ejercicios registrados</div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="form-page">
+    <h1>Registrar entrenamiento</h1>
+    <form method="POST">
+        <label>Fecha</label>
+        <input type="date" name="date" value="{{ today.strftime('%Y-%m-%d') }}" required>
+
+        <label>Duración (minutos)</label>
+        <input type="number" name="duration_minutes" min="1" placeholder="Ej: 60">
+
+        <label>Notas (opcional)</label>
+        <textarea name="notes" rows="2" placeholder="Ej: Pierna, pesado"></textarea>
+
+        <button type="submit">Crear sesión</button>
+        <a href="{{ url_for('dashboard') }}" class="btn-link">Cancelar</a>
+    </form>
+</div>
+{% endblock %}

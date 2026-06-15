@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="dashboard">
+    <h1>Mi semana</h1>
+    <p class="week-range">{{ monday.strftime('%d/%m') }} - {{ sunday.strftime('%d/%m') }}</p>
+
+    <div class="progress-circle {{ 'cumple' if cumple else 'nocumple' }}">
+        <span class="big-number">{{ trained_count }}</span>
+        <span class="label">/ 5 días</span>
+    </div>
+
+    <div class="days-grid">
+        {% for day in week_days %}
+            <div class="day {{ 'trained' if day in trained_dates else 'empty' }} {{ 'today' if day == today }}">
+                <span class="day-name">{{ day_names[loop.index0] }}</span>
+                <span class="day-num">{{ day.strftime('%d') }}</span>
+                {% if day in trained_dates %}
+                    <span class="check">✓</span>
+                {% endif %}
+                {% if day == today %}
+                    <span class="today-badge">hoy</span>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+
+    {% if today_session %}
+        <a href="{{ url_for('ver_sesion', sesion_id=today_session.id) }}" class="btn btn-secondary">
+            Ver entrenamiento de hoy
+        </a>
+        <a href="{{ url_for('eliminar_sesion', sesion_id=today_session.id) }}"
+           class="btn btn-danger btn-small"
+           onclick="return confirm('¿Eliminar esta sesión?')">
+            Eliminar hoy
+        </a>
+    {% else %}
+        <a href="{{ url_for('registrar') }}" class="btn btn-primary">
+            + Registrar entrenamiento
+        </a>
+    {% endif %}
+
+    <div class="penalty-box {{ 'danger' if penalty > 0 else 'safe' }}">
+        {% if cumple %}
+            ✅ Vas bien, cumpliste los 5 días
+        {% elif trained_count == 0 %}
+            Esta semana aún no has entrenado
+        {% else %}
+            ⚠️ Te faltan {{ 5 - trained_count }} día(s) - Sanción: ${{ penalty }}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

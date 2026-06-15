@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="auth-container">
+    <h1>Iniciar sesión</h1>
+    <form method="POST">
+        <input type="text" name="username" placeholder="Usuario" required>
+        <input type="password" name="password" placeholder="Contraseña" required>
+        <button type="submit">Entrar</button>
+    </form>
+    <p class="auth-link">¿No tienes cuenta? <a href="{{ url_for('register') }}">Regístrate</a></p>
+</div>
+{% endblock %}
