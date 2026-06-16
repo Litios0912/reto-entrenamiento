@@ -42,7 +42,7 @@
                     {% set ns = namespace(vol=0) %}
                     {% for e in s.exercises[:5] %}
                         <span class="ex-tag">{{ e.name }}</span>
-                        {% set ns.vol = ns.vol + (e.sets|default(0) * e.reps|default(0) * e.weight_kg|default(0)) %}
+                        {% set ns.vol = ns.vol + (e.sets|default(0, True) * e.reps|default(0, True) * e.weight_kg|default(0, True)) %}
                     {% endfor %}
                     {% if s.exercises|length > 5 %}
                         <span class="ex-tag">+{{ s.exercises|length - 5 }} más</span>

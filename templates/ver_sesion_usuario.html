@@ -16,7 +16,7 @@
     {% if session.exercises %}
         <div class="exercise-list">
             {% for ej in session.exercises %}
-                {% set vol = ej.sets|default(0) * ej.reps|default(0) * ej.weight_kg|default(0) %}
+                {% set vol = ej.sets|default(0, True) * ej.reps|default(0, True) * ej.weight_kg|default(0, True) %}
                 <div class="exercise-card">
                     <div class="ex-header">
                         <span class="ex-name">{{ ej.name }}</span>
