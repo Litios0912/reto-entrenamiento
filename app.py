@@ -650,11 +650,16 @@ def exportar():
 @app.route('/progreso')
 @login_required
 def progreso():
-    results, monday, sunday, multa = all_users_week_progress()
-    week_days = [(monday + timedelta(days=i)) for i in range(7)]
-    return render_template('progreso.html',
-        results=results, monday=monday, sunday=sunday,
-        multa_por_dia=multa, week_days=week_days)
+    try:
+        results, monday, sunday, multa = all_users_week_progress()
+        week_days = [(monday + timedelta(days=i)) for i in range(7)]
+        return render_template('progreso.html',
+            results=results, monday=monday, sunday=sunday,
+            multa_por_dia=multa, week_days=week_days)
+    except Exception as e:
+        print(f'Error en progreso: {e}', file=sys.stderr)
+        flash('Error al cargar el progreso. Intenta de nuevo.')
+        return redirect(url_for('dashboard'))
 
 
 # ─── Admin ──────────────────────────────────────────────────────────
