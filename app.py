@@ -15,9 +15,14 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'cambia-esta-clave-123')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
     'DATABASE_URL', 'sqlite:///entrenamiento.db').replace('postgres://', 'postgresql://')
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+if not app.debug:
+    app.config['SESSION_COOKIE_SECURE'] = True
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
+login_manager.session_protection = 'strong'
 
 # ─── Modelos ────────────────────────────────────────────────────────
 
@@ -724,9 +729,6 @@ def ver_sesion_usuario(user_id, sesion_id):
     if not session or session.user_id != user_id:
         flash('Sesión no encontrada')
         return redirect(url_for('progreso'))
-    if session.user_id != current_user.id and not current_user.is_admin:
-        flash('No autorizado')
-        return redirect(url_for('progreso'))
     return render_template('ver_sesion_usuario.html', session=session)
 
 
@@ -743,6 +745,21 @@ def init_app():
         except Exception as e:
             import sys
             print(f'Init error: {e}', file=sys.stderr)
+
+@app.route('/usuario/<int:user_id>/ultima-sesion')
+@login_required
+def ver_ultima_sesion_usuario(user_id):
+    user = db.session.get(User, user_id)
+    if not user:
+        flash('Usuario no encontrado')
+        return redirect(url_for('progreso'))
+    session = TrainingSession.query.filter_by(user_id=user_id)\
+        .order_by(TrainingSession.date.desc()).first()
+    if not session:
+        flash(f'{user.username} aún no tiene entrenamientos')
+        return redirect(url_for('progreso'))
+    return redirect(url_for('ver_sesion_usuario',
+        user_id=user_id, sesion_id=session.id))
 
 
 if __name__ == '__main__':

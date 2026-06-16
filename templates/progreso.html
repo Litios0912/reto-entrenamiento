@@ -21,7 +21,7 @@
             <tr class="{{ 'cumple' if r.cumple else 'nocumple' }}">
                 <td>{{ loop.index }}</td>
                 <td class="user-cell">
-                    <span class="username">{{ r.user.username }}</span>
+                    <a href="{{ url_for('ver_ultima_sesion_usuario', user_id=r.user.id) }}" class="username">{{ r.user.username }}</a>
                     <div class="mini-days">
                         {% for day in week_days %}
                             <span class="mini-day {{ 'ok' if day in r.trained_dates else 'no' }}"

@@ -2,31 +2,52 @@
 <html lang="es" data-theme="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>ONLYMENS</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <nav>
-        <div class="nav-container">
+    <nav class="top-nav">
+        <div class="top-nav-inner">
             <a href="{{ url_for('dashboard') }}" class="nav-brand">ONLYMENS</a>
-            <div class="nav-links">
+            <div class="nav-right">
                 {% if current_user.is_authenticated %}
-                    <a href="{{ url_for('dashboard') }}">Semana</a>
-                    <a href="{{ url_for('historial') }}">Historial</a>
-                    <a href="{{ url_for('progreso') }}">Grupo</a>
-                    <a href="{{ url_for('peso') }}">Peso</a>
-                    <a href="{{ url_for('ejercicios_personalizados') }}">Ejer.</a>
-                    {% if current_user.is_admin %}
-                        <a href="{{ url_for('admin') }}" class="nav-admin">Admin</a>
-                    {% endif %}
                     <span class="user-name">{{ current_user.username }}</span>
-                    <a href="{{ url_for('logout') }}">Salir</a>
+                    {% if current_user.is_admin %}
+                        <a href="{{ url_for('admin') }}" class="btn-link btn-small" style="font-size:0.7rem;">Admin</a>
+                    {% endif %}
+                    <a href="{{ url_for('ejercicios_personalizados') }}" class="btn-link btn-small" style="font-size:0.7rem;">Ejer</a>
+                    <a href="{{ url_for('logout') }}" class="btn-link btn-small" style="font-size:0.7rem;color:var(--danger);">Salir</a>
                 {% endif %}
+                <button class="theme-toggle" onclick="toggleTheme()" title="Tema">🌓</button>
             </div>
-            <button class="theme-toggle" onclick="toggleTheme()" title="Tema">🌓</button>
         </div>
     </nav>
+
+    {% if current_user.is_authenticated %}
+    <nav class="bottom-nav">
+        <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">
+            <span class="nav-icon">📊</span>
+            <span class="nav-label">Semana</span>
+        </a>
+        <a href="{{ url_for('historial') }}" class="{% if request.endpoint and 'historial' in request.endpoint %}active{% endif %}">
+            <span class="nav-icon">📅</span>
+            <span class="nav-label">Historial</span>
+        </a>
+        <a href="{{ url_for('registrar') }}" class="{% if request.endpoint == 'registrar' %}active{% endif %}">
+            <span class="nav-icon">➕</span>
+            <span class="nav-label">Registrar</span>
+        </a>
+        <a href="{{ url_for('progreso') }}" class="{% if request.endpoint == 'progreso' %}active{% endif %}">
+            <span class="nav-icon">🏆</span>
+            <span class="nav-label">Grupo</span>
+        </a>
+        <a href="{{ url_for('peso') }}" class="{% if request.endpoint == 'peso' %}active{% endif %}">
+            <span class="nav-icon">⚖️</span>
+            <span class="nav-label">Peso</span>
+        </a>
+    </nav>
+    {% endif %}
 
     <main>
         {% with messages = get_flashed_messages() %}
@@ -50,6 +71,9 @@
     (function() {
         const saved = localStorage.getItem('theme');
         if (saved) document.documentElement.setAttribute('data-theme', saved);
+        const links = document.querySelectorAll('.bottom-nav a');
+        const cur = window.location.href;
+        links.forEach(a => { if (a.href === cur) a.classList.add('active'); });
     })();
     </script>
 </body>
