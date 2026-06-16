@@ -21,8 +21,8 @@
             <span class="stat-label">kg volumen</span>
         </div>
         <div class="stat-card">
-            <span class="stat-num">{{ (total_duration / 60)|round(1) if total_duration > 60 else total_duration }}</span>
-            <span class="stat-label">{{ 'horas' if total_duration > 60 else 'min' }}</span>
+            <span class="stat-num">{% if total_duration >= 60 %}{{ (total_duration / 60)|round(1) }}{% else %}{{ total_duration }}{% endif %}</span>
+            <span class="stat-label">{% if total_duration >= 60 %}horas{% else %}min{% endif %}</span>
         </div>
     </div>
 

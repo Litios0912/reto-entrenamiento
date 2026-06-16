@@ -56,7 +56,7 @@
         {% if session.comments %}
             {% for c in session.comments %}
                 <div class="comment">
-                    <span class="comment-author">{{ c.author.username }}</span>
+                    <span class="comment-author">{{ c.author.username if c.author else '👤 Eliminado' }}</span>
                     <span class="comment-text">{{ c.text }}</span>
                     <span class="comment-date">{{ c.created_at.strftime('%d/%m %H:%M') }}</span>
                 </div>

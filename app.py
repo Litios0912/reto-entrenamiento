@@ -1,5 +1,6 @@
 import os
 import csv
+import sys
 from io import StringIO
 from datetime import date, datetime, timedelta
 from functools import wraps
@@ -10,6 +11,7 @@ from flask_login import (
 )
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'cambia-esta-clave-123')
@@ -17,12 +19,11 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
     'DATABASE_URL', 'sqlite:///entrenamiento.db').replace('postgres://', 'postgresql://')
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-if not app.debug:
-    app.config['SESSION_COOKIE_SECURE'] = True
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
-login_manager.session_protection = 'strong'
+login_manager.session_protection = 'basic'
 
 # ─── Modelos ────────────────────────────────────────────────────────
 
@@ -254,7 +255,14 @@ def migrate_db():
 
 def get_multa():
     s = Setting.query.get('multa_por_dia')
-    return int(s.value) if s else int(os.environ.get('MULTA_POR_DIA', 50))
+    try:
+        if s:
+            return int(s.value)
+        return int(os.environ.get('MULTA_POR_DIA', 50))
+    except (ValueError, TypeError):
+        Setting.query.filter_by(key='multa_por_dia').delete()
+        db.session.commit()
+        return 50
 
 
 def admin_required(f):
@@ -581,6 +589,9 @@ def historial():
 @app.route('/historial/<int:year>/<int:month>')
 @login_required
 def historial_mes(year, month):
+    if month < 1 or month > 12:
+        today = date.today()
+        return redirect(url_for('historial_mes', year=today.year, month=today.month))
     first, last = month_range(year, month)
     sessions = TrainingSession.query.filter(
         TrainingSession.user_id == current_user.id,
@@ -704,11 +715,13 @@ def admin_eliminar_usuario(user_id):
     if user.is_admin:
         flash('No puedes eliminar a otro admin')
         return redirect(url_for('admin'))
+    for c in Comment.query.filter_by(user_id=user.id).all():
+        db.session.delete(c)
     for s in user.sessions:
         for e in s.exercises:
             db.session.delete(e)
-        for c in s.comments:
-            db.session.delete(c)
+        for c_ in s.comments:
+            db.session.delete(c_)
         db.session.delete(s)
     for w in user.body_weights:
         db.session.delete(w)
@@ -743,7 +756,6 @@ def init_app():
             migrate_db()
             seed_exercises()
         except Exception as e:
-            import sys
             print(f'Init error: {e}', file=sys.stderr)
 
 @app.route('/usuario/<int:user_id>/ultima-sesion')
