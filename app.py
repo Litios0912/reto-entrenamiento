@@ -137,11 +137,11 @@ RANK_CONFIG = [
 
 
 def xp_for_level(level):
-    return 25 * level * (level + 1)
+    return 5 * level * (level + 1)
 
 
 def level_from_xp(total_xp):
-    return int((-1 + math.sqrt(1 + 4 * total_xp / 25)) / 2)
+    return int((-1 + math.sqrt(1 + 4 * total_xp / 5)) / 2)
 
 
 def xp_for_exercises(session):
