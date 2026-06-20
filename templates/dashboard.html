@@ -75,5 +75,8 @@
             ⚠️ Te faltan {{ 5 - trained_count }} día(s) - Sanción: ${{ penalty }}
         {% endif %}
     </div>
+    <div style="text-align:center;margin-top:12px;">
+        <a href="{{ url_for('stats_self') }}" class="btn btn-secondary">📊 Ver estadísticas completas</a>
+    </div>
 </div>
 {% endblock %}

@@ -888,6 +888,113 @@ def calendario_view(view, year, month, day):
         return render_template('calendario.html', **ctx)
 
 
+# ─── Stats / Perfil ────────────────────────────────────────────────
+
+@app.route('/stats')
+@login_required
+def stats_self():
+    return redirect(url_for('stats', user_id=current_user.id))
+
+
+@app.route('/stats/<int:user_id>')
+@login_required
+def stats(user_id):
+    user = db.session.get(User, user_id)
+    if not user:
+        flash('Usuario no encontrado')
+        return redirect(url_for('progreso'))
+
+    all_sessions = TrainingSession.query.filter_by(user_id=user_id)\
+        .order_by(TrainingSession.date).all()
+
+    total_sessions = len(all_sessions)
+    total_exercises = sum(len(s.exercises) for s in all_sessions)
+    total_volume = sum(e.volume() for s in all_sessions for e in s.exercises)
+    total_duration = sum(s.duration_minutes or 0 for s in all_sessions)
+    total_weight_logs = BodyWeight.query.filter_by(user_id=user_id).count()
+
+    pxp = PlayerXP.query.get(user_id)
+    rank_info = get_rank_config(pxp.rank if pxp else 'bronze')
+    xp_current = pxp.xp if pxp else 0
+    xp_level = pxp.level if pxp else 0
+
+    current_streak = get_streak(user_id)
+
+    best_streak = 0
+    streak_count = 0
+    prev_date = None
+    for s in all_sessions:
+        if prev_date:
+            diff = (s.date - prev_date).days
+            if diff == 1:
+                streak_count += 1
+            elif diff > 1:
+                streak_count = 0
+        else:
+            streak_count = 0
+        best_streak = max(best_streak, streak_count)
+        prev_date = s.date
+    best_streak += 1
+
+    this_monday, this_sunday = week_range()
+    last_monday = this_monday - timedelta(days=7)
+    last_sunday = this_sunday - timedelta(days=7)
+
+    this_week_sessions = get_sessions_in_range(user_id, this_monday, this_sunday)
+    this_week_days = len(this_week_sessions)
+    this_week_vol = sum(e.volume() for s in this_week_sessions for e in s.exercises)
+
+    last_week_sessions = get_sessions_in_range(user_id, last_monday, last_sunday)
+    last_week_days = len(last_week_sessions)
+    last_week_vol = sum(e.volume() for s in last_week_sessions for e in s.exercises)
+
+    months_data = []
+    for i in range(5, -1, -1):
+        y = this_monday.year
+        m = this_monday.month - i
+        while m < 1:
+            m += 12
+            y -= 1
+        while m > 12:
+            m -= 12
+            y += 1
+        first, last = month_range(y, m)
+        count = sum(1 for s in all_sessions if first <= s.date <= last)
+        months_data.append({
+            'name': ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                     'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][m-1][:3],
+            'count': count,
+            'max': 31,
+        })
+    max_count = max(m['count'] for m in months_data) or 1
+
+    recent_sessions = TrainingSession.query.filter_by(user_id=user_id)\
+        .order_by(TrainingSession.date.desc()).limit(10).all()
+
+    body_weights = BodyWeight.query.filter_by(user_id=user_id)\
+        .order_by(BodyWeight.date.desc()).all()
+
+    return render_template('stats.html',
+        target_user=user, rank_info=rank_info,
+        xp=xp_current, level=xp_level,
+        total_sessions=total_sessions,
+        total_exercises=total_exercises,
+        total_volume=round(total_volume),
+        total_duration=total_duration,
+        total_weight_logs=total_weight_logs,
+        current_streak=current_streak,
+        best_streak=best_streak,
+        this_week_days=this_week_days,
+        this_week_vol=round(this_week_vol),
+        last_week_days=last_week_days,
+        last_week_vol=round(last_week_vol),
+        months_data=months_data,
+        max_count=max_count,
+        recent_sessions=recent_sessions,
+        body_weights=body_weights,
+        is_owner=(current_user.id == user_id))
+
+
 # ─── Admin ──────────────────────────────────────────────────────────
 
 @app.route('/admin')

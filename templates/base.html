@@ -16,6 +16,7 @@
                     {% if current_user.is_admin %}
                         <a href="{{ url_for('admin') }}" class="btn-link btn-small" style="font-size:0.7rem;">Admin</a>
                     {% endif %}
+                    <a href="{{ url_for('stats_self') }}" class="btn-link btn-small" style="font-size:0.7rem;">Stats</a>
                     <a href="{{ url_for('ejercicios_personalizados') }}" class="btn-link btn-small" style="font-size:0.7rem;">Ejer</a>
                     <a href="{{ url_for('logout') }}" class="btn-link btn-small" style="font-size:0.7rem;color:var(--danger);">Salir</a>
                 {% endif %}
