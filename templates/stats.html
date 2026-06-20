@@ -7,18 +7,18 @@
             {{ target_user.username }}
         </h1>
         {% if not is_owner %}
-            <a href="{{ url_for('progreso') }}" class="btn-link">← Volver al grupo</a>
+            <a href="{{ url_for('progreso') }}" class="btn-link">← Volver</a>
         {% endif %}
     </div>
 
-    <div class="xp-bar-container" style="margin-bottom:14px;">
+    <div class="xp-bar-container" style="margin-bottom:10px;">
         <div class="xp-header">
             <span class="xp-level">Nv.{{ level }}</span>
             <span class="xp-count">{{ xp }} XP</span>
         </div>
         <div class="xp-bar-bg">
-            {% set xp_prev = level * (level + 1) * 50 %}
-            {% set xp_next = (level + 1) * (level + 2) * 50 %}
+            {% set xp_prev = level * (level + 1) * 5 %}
+            {% set xp_next = (level + 1) * (level + 2) * 5 %}
             {% set xp_prog = xp - xp_prev %}
             {% set xp_need = xp_next - xp_prev %}
             {% set xp_pct = (xp_prog / xp_need * 100) if xp_need > 0 else 0 %}
@@ -27,105 +27,79 @@
     </div>
 
     <div class="stats-grid">
-        <div class="stat-card-lg">
-            <span class="stat-num-lg">{{ total_sessions }}</span>
-            <span class="stat-label">Entrenamientos</span>
+        <div class="stat-card-lg"><span class="stat-num-lg">{{ total_sessions }}</span><span class="stat-label">Entrenos</span></div>
+        <div class="stat-card-lg"><span class="stat-num-lg">{{ total_exercises }}</span><span class="stat-label">Ejercicios</span></div>
+        <div class="stat-card-lg"><span class="stat-num-lg">{{ total_volume }}</span><span class="stat-label">Vol. kg</span></div>
+        <div class="stat-card-lg"><span class="stat-num-lg">{{ total_duration }}</span><span class="stat-label">Minutos</span></div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-bottom:10px;">
+        <div style="flex:1;background:var(--bg2);border-radius:10px;padding:8px;text-align:center;">
+            <span style="display:block;font-size:1.3rem;font-weight:800;">{{ current_streak }}</span>
+            <span style="font-size:0.6rem;color:var(--text2);text-transform:uppercase;">Racha act.</span>
         </div>
-        <div class="stat-card-lg">
-            <span class="stat-num-lg">{{ total_exercises }}</span>
-            <span class="stat-label">Ejercicios</span>
-        </div>
-        <div class="stat-card-lg">
-            <span class="stat-num-lg">{{ total_volume }}</span>
-            <span class="stat-label">Vol. total kg</span>
-        </div>
-        <div class="stat-card-lg">
-            <span class="stat-num-lg">{{ total_duration }}</span>
-            <span class="stat-label">Min totales</span>
+        <div style="flex:1;background:var(--bg2);border-radius:10px;padding:8px;text-align:center;border:2px solid var(--warn);">
+            <span style="display:block;font-size:1.3rem;font-weight:800;">{{ best_streak }}</span>
+            <span style="font-size:0.6rem;color:var(--text2);text-transform:uppercase;">Mejor racha</span>
         </div>
     </div>
 
-    <section class="stats-section">
-        <h2>🔥 Rachas</h2>
-        <div class="streak-row">
-            <div class="streak-box">
-                <span class="streak-num">{{ current_streak }}</span>
-                <span class="streak-label">Actual</span>
-            </div>
-            <div class="streak-box best">
-                <span class="streak-num">{{ best_streak }}</span>
-                <span class="streak-label">Mejor</span>
-            </div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+        <div style="flex:1;background:var(--bg2);border-radius:8px;padding:6px 10px;text-align:center;">
+            <span style="display:block;font-size:0.55rem;color:var(--text2);text-transform:uppercase;">Semana pasada</span>
+            <span style="display:block;font-size:1rem;font-weight:700;">{{ last_week_days }}d</span>
+            <span style="font-size:0.6rem;color:var(--text2);">{{ last_week_vol }}kg</span>
         </div>
-    </section>
-
-    <section class="stats-section">
-        <h2>📊 Comparativa semanal</h2>
-        <div class="week-compare">
-            <div class="week-compare-box {{ 'up' if this_week_days >= last_week_days else 'down' }}">
-                <span class="wc-label">Semana pasada</span>
-                <span class="wc-num">{{ last_week_days }} días</span>
-                <span class="wc-sub">{{ last_week_vol }} kg vol.</span>
-            </div>
-            <div class="week-compare-arrow">→</div>
-            <div class="week-compare-box {{ 'up' if this_week_days >= last_week_days else 'down' }}">
-                <span class="wc-label">Esta semana</span>
-                <span class="wc-num">{{ this_week_days }} días</span>
-                <span class="wc-sub">{{ this_week_vol }} kg vol.</span>
-            </div>
+        <div style="flex:1;background:var(--bg2);border-radius:8px;padding:6px 10px;text-align:center;">
+            <span style="display:block;font-size:0.55rem;color:var(--text2);text-transform:uppercase;">Esta semana</span>
+            <span style="display:block;font-size:1rem;font-weight:700;">{{ this_week_days }}d</span>
+            <span style="font-size:0.6rem;color:var(--text2);">{{ this_week_vol }}kg</span>
         </div>
-    </section>
+    </div>
 
-    <section class="stats-section">
-        <h2>📈 Últimos 6 meses</h2>
-        <div class="month-chart">
+    <div style="margin-bottom:10px;">
+        <h2 style="font-size:0.75rem;color:var(--text2);margin-bottom:4px;">📈 Últimos 6 meses</h2>
+        <div class="month-chart" style="height:80px;">
             {% for m in months_data %}
                 <div class="month-bar-wrapper">
-                    <div class="month-bar-bg">
-                        <div class="month-bar-fill" style="height:{{ (m.count / max_count * 80)|int + 10 }}%;"></div>
+                    <div class="month-bar-bg" style="height:60px;">
+                        <div class="month-bar-fill" style="height:{{ (m.count / max_count * 50)|int + 10 if max_count else 10 }}%;"></div>
                     </div>
                     <span class="month-bar-label">{{ m.name }}</span>
                     <span class="month-bar-count">{{ m.count }}</span>
                 </div>
             {% endfor %}
         </div>
-    </section>
+    </div>
+
+    {% if recent_sessions %}
+    <div>
+        <h2 style="font-size:0.75rem;color:var(--text2);margin-bottom:4px;">🕐 Últimas sesiones</h2>
+        {% for s in recent_sessions[:5] %}
+            <div style="background:var(--bg2);border-radius:6px;margin-bottom:3px;">
+                <a href="{{ url_for('ver_sesion_usuario', user_id=target_user.id, sesion_id=s.id) if not is_owner else url_for('ver_sesion', sesion_id=s.id) }}" style="display:flex;align-items:center;gap:8px;padding:6px 10px;text-decoration:none;color:inherit;">
+                    <span style="font-weight:600;font-size:0.8rem;flex:1;">{{ s.date.strftime('%a %d/%m') }}</span>
+                    {% if s.duration_minutes %}<span style="font-size:0.65rem;color:var(--text2);">{{ s.duration_minutes }}'</span>{% endif %}
+                    <span style="font-size:0.65rem;color:var(--accent);">{{ s.exercises|length }} ej.</span>
+                    {% if s.exercises %}<span style="font-size:0.65rem;color:var(--warn);font-weight:600;">{{ s.exercises|sum(attribute='volume') }} kg</span>{% endif %}
+                </a>
+            </div>
+        {% endfor %}
+    </div>
+    {% endif %}
 
     {% if body_weights %}
-    <section class="stats-section">
-        <h2>⚖️ Peso corporal</h2>
-        <div class="weight-mini-chart">
-            {% for bw in body_weights[:10] %}
-                <div class="weight-dot-wrapper">
-                    <span class="weight-dot-val">{{ bw.weight_kg }}</span>
-                    <span class="weight-dot-date">{{ bw.date.strftime('%d/%m') }}</span>
+    <div style="margin-top:10px;">
+        <h2 style="font-size:0.75rem;color:var(--text2);margin-bottom:4px;">⚖️ Peso</h2>
+        <div style="display:flex;gap:6px;overflow-x:auto;">
+            {% for bw in body_weights[:8] %}
+                <div style="text-align:center;min-width:44px;">
+                    <div style="font-size:0.85rem;font-weight:700;">{{ bw.weight_kg }}</div>
+                    <div style="font-size:0.5rem;color:var(--text2);">{{ bw.date.strftime('%d/%m') }}</div>
                 </div>
             {% endfor %}
         </div>
-    </section>
+    </div>
     {% endif %}
-
-    <section class="stats-section">
-        <h2>🕐 Últimas sesiones</h2>
-        {% if recent_sessions %}
-            {% for s in recent_sessions %}
-                <div class="stats-session-card">
-                    <a href="{{ url_for('ver_sesion_usuario', user_id=target_user.id, sesion_id=s.id) if not is_owner else url_for('ver_sesion', sesion_id=s.id) }}" class="stats-session-link">
-                        <span class="stats-session-date">{{ s.date.strftime('%a %d/%m') }}</span>
-                        {% if s.duration_minutes %}
-                            <span class="stats-session-dur">{{ s.duration_minutes }}'</span>
-                        {% endif %}
-                        <span class="stats-session-ex">{{ s.exercises|length }} ej.</span>
-                        {% if s.exercises %}
-                            {% set svol = s.exercises|sum(attribute='volume') %}
-                            <span class="stats-session-vol">{{ svol }} kg</span>
-                        {% endif %}
-                    </a>
-                </div>
-            {% endfor %}
-        {% else %}
-            <div class="empty-state">Sin entrenamientos registrados</div>
-        {% endif %}
-    </section>
 </div>
 {% endblock %}

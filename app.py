@@ -951,7 +951,8 @@ def stats(user_id):
             streak_count = 0
         best_streak = max(best_streak, streak_count)
         prev_date = s.date
-    best_streak += 1
+    if all_sessions:
+        best_streak += 1
 
     this_monday, this_sunday = week_range()
     last_monday = this_monday - timedelta(days=7)
