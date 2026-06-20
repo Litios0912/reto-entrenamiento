@@ -12,6 +12,17 @@
     </section>
 
     <section class="admin-section">
+        <h2>Sistema de niveles</h2>
+        <p style="font-size:0.8rem;color:var(--text2);margin-bottom:8px;">
+            Estado: {% if xp_ok %}✅ Todos los usuarios con XP{% else %}❌ Hay usuarios sin XP calculado{% endif %}
+        </p>
+        <a href="{{ url_for('admin_recalcular') }}" class="btn btn-primary btn-small"
+           onclick="return confirm('¿Recalcular XP y rangos para todos?')">
+            🔄 Recalcular XP y rangos
+        </a>
+    </section>
+
+    <section class="admin-section">
         <h2>Usuarios ({{ users|length }})</h2>
         <table>
             <thead>

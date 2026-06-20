@@ -214,6 +214,9 @@ def get_rank_config(rank_id):
 def recalculate_all_xp():
     for user in User.query.all():
         try:
+            pxp = PlayerXP.query.get(user.id)
+            if pxp:
+                db.session.delete(pxp)
             recalculate_xp(user.id)
         except Exception as e:
             print(f'Error recalculating XP for {user.username}: {e}', file=sys.stderr)
@@ -1017,7 +1020,8 @@ def stats(user_id):
 def admin():
     users = User.query.all()
     multa = get_multa()
-    return render_template('admin.html', users=users, multa_por_dia=multa)
+    xp_ok = all(PlayerXP.query.get(u.id) for u in users) if users else True
+    return render_template('admin.html', users=users, multa_por_dia=multa, xp_ok=xp_ok)
 
 
 @app.route('/admin/multa', methods=['POST'])
@@ -1038,6 +1042,20 @@ def admin_multa():
         db.session.add(Setting(key='multa_por_dia', value=str(val)))
     db.session.commit()
     flash(f'Multa actualizada a ${val}')
+    return redirect(url_for('admin'))
+
+
+@app.route('/admin/recalcular')
+@login_required
+@admin_required
+def admin_recalcular():
+    recalculate_all_xp()
+    users = User.query.all()
+    results = []
+    for u in users:
+        pxp = PlayerXP.query.get(u.id)
+        results.append(f'{u.username}: Nv.{pxp.level if pxp else 0} | {pxp.xp if pxp else 0} XP | {pxp.rank if pxp else "bronze"}')
+    flash('XP y rangos recalculados para todos los usuarios')
     return redirect(url_for('admin'))
 
 
@@ -1109,10 +1127,29 @@ def init_app():
         _initialized = True
         try:
             migrate_db()
-            seed_exercises()
-            recalculate_all_xp()
         except Exception as e:
-            print(f'Init error: {e}', file=sys.stderr)
+            print(f'Init error (migrate): {e}', file=sys.stderr)
+        try:
+            seed_exercises()
+        except Exception as e:
+            print(f'Init error (seed): {e}', file=sys.stderr)
+        for user in User.query.all():
+            pxp = PlayerXP.query.get(user.id)
+            if pxp:
+                continue
+            try:
+                recalculate_xp(user.id)
+            except Exception as e:
+                print(f'Init XP error for {user.username}: {e}', file=sys.stderr)
+        try:
+            db.session.commit()
+            for user in User.query.all():
+                pxp = PlayerXP.query.get(user.id)
+                if pxp:
+                    pxp.rank = calculate_rank(user.id, pxp.level)
+            db.session.commit()
+        except Exception as e:
+            print(f'Init error (rank): {e}', file=sys.stderr)
 
 @app.route('/usuario/<int:user_id>/ultima-sesion')
 @login_required
