@@ -137,11 +137,24 @@ RANK_CONFIG = [
 
 
 def xp_for_level(level):
-    return 50 * level * (level + 1)
+    return 25 * level * (level + 1)
 
 
 def level_from_xp(total_xp):
-    return int((-1 + math.sqrt(1 + 4 * total_xp / 50)) / 2)
+    return int((-1 + math.sqrt(1 + 4 * total_xp / 25)) / 2)
+
+
+def xp_for_exercises(session):
+    xp = 0
+    for e in session.exercises:
+        xp += 10  # base per exercise
+        if e.weight_kg:
+            xp += int(e.weight_kg / 10)  # +1 cada 10kg
+        if e.distance_km:
+            xp += int(e.distance_km * 2)  # +2 por km
+        if e.time_minutes and not e.distance_km:
+            xp += int(e.time_minutes / 5)  # +1 cada 5 min (solo si no es cardio con distancia)
+    return xp
 
 
 def recalculate_xp(user_id):
@@ -160,6 +173,7 @@ def recalculate_xp(user_id):
         else:
             streak_count = 0
         xp_gain = 200 if streak_count >= 2 else 100
+        xp_gain += xp_for_exercises(s)
         total_xp += xp_gain
         prev_date = s.date
     level = level_from_xp(total_xp)
@@ -199,9 +213,6 @@ def get_rank_config(rank_id):
 
 def recalculate_all_xp():
     for user in User.query.all():
-        pxp = PlayerXP.query.get(user.id)
-        if pxp:
-            continue
         try:
             recalculate_xp(user.id)
         except Exception as e:
@@ -550,6 +561,8 @@ def agregar_ejercicio(sesion_id):
         distance_km=distance, time_minutes=time_min)
     db.session.add(log)
     db.session.commit()
+    recalculate_xp(current_user.id)
+    db.session.commit()
     flash(f'{name} agregado')
     return redirect(url_for('ver_sesion', sesion_id=sesion_id))
 
@@ -566,9 +579,10 @@ def eliminar_ejercicio(ej_id):
         flash('No autorizado')
         return redirect(url_for('dashboard'))
     sesion_id = session.id
+    uid = session.user_id
     db.session.delete(ej)
     db.session.commit()
-    recalculate_xp(current_user.id)
+    recalculate_xp(uid)
     db.session.commit()
     return redirect(url_for('ver_sesion', sesion_id=sesion_id))
 
