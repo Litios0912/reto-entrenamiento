@@ -21,6 +21,10 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
     'DATABASE_URL', 'sqlite:///entrenamiento.db').replace('postgres://', 'postgresql://')
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_pre_ping': True,
+    'pool_recycle': 300,
+}
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
@@ -80,6 +84,7 @@ class ExerciseLog(db.Model):
     distance_km = db.Column(db.Float)
     time_minutes = db.Column(db.Float)
 
+    @property
     def volume(self):
         if self.sets and self.reps and self.weight_kg:
             return self.sets * self.reps * self.weight_kg
@@ -314,7 +319,7 @@ def get_weekly_volume(user_id, monday, sunday):
     total = 0
     for s in sessions:
         for e in s.exercises:
-            total += e.volume()
+            total += e.volume
     return total
 
 
@@ -739,7 +744,7 @@ def historial_mes(year, month):
         TrainingSession.date <= last
     ).order_by(TrainingSession.date.desc()).all()
     total_volume = sum(
-        e.volume() for s in sessions for e in s.exercises)
+        e.volume for s in sessions for e in s.exercises)
     total_duration = sum(s.duration_minutes or 0 for s in sessions)
     month_name = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
                   'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
@@ -926,7 +931,7 @@ def stats(user_id):
 
     total_sessions = len(all_sessions)
     total_exercises = sum(len(s.exercises) for s in all_sessions)
-    total_volume = sum(e.volume() for s in all_sessions for e in s.exercises)
+    total_volume = sum(e.volume for s in all_sessions for e in s.exercises)
     total_duration = sum(s.duration_minutes or 0 for s in all_sessions)
     total_weight_logs = BodyWeight.query.filter_by(user_id=user_id).count()
 
@@ -960,11 +965,11 @@ def stats(user_id):
 
     this_week_sessions = get_sessions_in_range(user_id, this_monday, this_sunday)
     this_week_days = len(this_week_sessions)
-    this_week_vol = sum(e.volume() for s in this_week_sessions for e in s.exercises)
+    this_week_vol = sum(e.volume for s in this_week_sessions for e in s.exercises)
 
     last_week_sessions = get_sessions_in_range(user_id, last_monday, last_sunday)
     last_week_days = len(last_week_sessions)
-    last_week_vol = sum(e.volume() for s in last_week_sessions for e in s.exercises)
+    last_week_vol = sum(e.volume for s in last_week_sessions for e in s.exercises)
 
     months_data = []
     for i in range(5, -1, -1):
