@@ -4,24 +4,33 @@
     <h1>Progreso del grupo</h1>
     <p class="week-range">{{ monday.strftime('%d/%m') }} - {{ sunday.strftime('%d/%m') }}</p>
 
+    <div class="ranking-legend">
+        {% for r in [{'id':'bronze','name':'Bronce','color':'#cd7f32'},{'id':'silver','name':'Plata','color':'#c0c0c0'},{'id':'gold','name':'Oro','color':'#ffd700'},{'id':'platinum','name':'Platino','color':'#e5e4e2'},{'id':'emerald','name':'Esmeralda','color':'#50c878'},{'id':'ruby','name':'Rubí','color':'#e0115f'}] %}
+            <span class="rank-dot" style="background:{{ r.color }};"></span>
+            <span class="rank-label" style="color:{{ r.color }};">{{ r.name }}</span>
+        {% endfor %}
+    </div>
+
     <table>
         <thead>
             <tr>
                 <th>#</th>
                 <th>Usuario</th>
+                <th>Rango</th>
+                <th>Nv.</th>
                 <th>Entrenó</th>
                 <th>Descansó</th>
                 <th>🔥 Racha</th>
                 <th>Sanción</th>
-                <th>Estado</th>
             </tr>
         </thead>
         <tbody>
             {% for r in results|sort(attribute='trained_days', reverse=True) %}
+            {% set rank = user_ranks.get(r.user.id, {'id':'bronze','name':'Bronce','color':'#cd7f32'}) %}
             <tr class="{{ 'cumple' if r.cumple else 'nocumple' }}">
                 <td>{{ loop.index }}</td>
                 <td class="user-cell">
-                    <a href="{{ url_for('ver_ultima_sesion_usuario', user_id=r.user.id) }}" class="username">{{ r.user.username }}</a>
+                    <a href="{{ url_for('ver_ultima_sesion_usuario', user_id=r.user.id) }}" class="username" style="color:{{ rank.color }};">{{ r.user.username }}</a>
                     <div class="mini-days">
                         {% for day in week_days %}
                             <span class="mini-day {{ 'ok' if day in r.trained_dates else 'no' }}"
@@ -29,11 +38,12 @@
                         {% endfor %}
                     </div>
                 </td>
+                <td><span class="rank-badge-sm" style="background:{{ rank.color }};color:#000;">{{ rank.name }}</span></td>
+                <td>{{ user_ranks.get(r.user.id, {}).get('level', 0) }}</td>
                 <td><strong>{{ r.trained_days }}</strong>/5</td>
                 <td>{{ r.days_rested }}</td>
                 <td>{% if r.streak %}🔥 {{ r.streak }}{% else %}-{% endif %}</td>
                 <td class="penalty">{% if r.penalty > 0 %}${{ r.penalty }}{% else %}-{% endif %}</td>
-                <td>{% if r.cumple %}✅{% else %}❌{% endif %}</td>
             </tr>
             {% endfor %}
         </tbody>

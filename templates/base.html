@@ -30,9 +30,9 @@
             <span class="nav-icon">📊</span>
             <span class="nav-label">Semana</span>
         </a>
-        <a href="{{ url_for('historial') }}" class="{% if request.endpoint and 'historial' in request.endpoint %}active{% endif %}">
+        <a href="{{ url_for('calendario') }}" class="{% if request.endpoint and 'calendario' in request.endpoint %}active{% endif %}">
             <span class="nav-icon">📅</span>
-            <span class="nav-label">Historial</span>
+            <span class="nav-label">Calendario</span>
         </a>
         <a href="{{ url_for('registrar') }}" class="{% if request.endpoint == 'registrar' %}active{% endif %}">
             <span class="nav-icon">➕</span>

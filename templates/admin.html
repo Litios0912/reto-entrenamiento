@@ -17,6 +17,8 @@
             <thead>
                 <tr>
                     <th>Usuario</th>
+                    <th>Rango</th>
+                    <th>Nv.</th>
                     <th>Admin</th>
                     <th>Sesiones</th>
                     <th>Acción</th>
@@ -24,8 +26,13 @@
             </thead>
             <tbody>
                 {% for u in users %}
+                {% set pxp = u.player_xp %}
+                {% set rank_id = pxp.rank if pxp else 'bronze' %}
+                {% set rcolors = {'bronze':'#cd7f32','silver':'#c0c0c0','gold':'#ffd700','platinum':'#e5e4e2','emerald':'#50c878','ruby':'#e0115f'} %}
                 <tr>
                     <td><strong>{{ u.username }}</strong></td>
+                    <td>{% if pxp %}<span class="rank-badge-sm" style="background:{{ rcolors[rank_id] }};color:#000;">{{ rank_id }}</span>{% else %}-{% endif %}</td>
+                    <td>{{ pxp.level if pxp else 0 }}</td>
                     <td>{% if u.is_admin %}👑 Sí{% else %}-{% endif %}</td>
                     <td>{{ u.sessions|length }}</td>
                     <td>

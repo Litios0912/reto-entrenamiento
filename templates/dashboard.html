@@ -4,6 +4,18 @@
     <h1>Mi semana</h1>
     <p class="week-range">{{ monday.strftime('%d/%m') }} - {{ sunday.strftime('%d/%m') }}</p>
 
+    <div class="xp-bar-container" style="margin-bottom:12px;">
+        <div class="xp-header">
+            <span class="rank-badge" style="background:{{ xp_data.rank.color }};color:#000;">{{ xp_data.rank.name }}</span>
+            <span class="xp-level">Nv.{{ xp_data.level }}</span>
+            <span class="xp-count">{{ xp_data.xp }} XP</span>
+        </div>
+        <div class="xp-bar-bg">
+            <div class="xp-bar-fill" style="width:{{ xp_data.xp_pct }}%;background:{{ xp_data.rank.color }};"></div>
+        </div>
+        <div class="xp-next">{{ xp_data.xp_progress }}/{{ xp_data.xp_needed }} XP para Nv.{{ xp_data.level + 1 }}</div>
+    </div>
+
     <div class="stats-row">
         <div class="stat-card">
             <span class="stat-num">{{ streak }}</span>

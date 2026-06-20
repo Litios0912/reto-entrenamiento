@@ -1,10 +1,11 @@
 import os
 import csv
 import sys
+import math
 from io import StringIO
 from datetime import date, datetime, timedelta
 from functools import wraps
-from flask import Flask, render_template, redirect, url_for, request, flash, Response
+from flask import Flask, render_template, redirect, url_for, request, flash, Response, jsonify
 from flask_login import (
     LoginManager, UserMixin, login_user, login_required,
     logout_user, current_user
@@ -12,6 +13,7 @@ from flask_login import (
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.middleware.proxy_fix import ProxyFix
+from sqlalchemy import func
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'cambia-esta-clave-123')
@@ -38,6 +40,7 @@ class User(UserMixin, db.Model):
     body_weights = db.relationship('BodyWeight', backref='user', lazy=True,
                                     order_by='BodyWeight.date.desc()')
     custom_exercises = db.relationship('CustomExercise', backref='user', lazy=True)
+    player_xp = db.relationship('PlayerXP', uselist=False, backref='user')
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -112,6 +115,108 @@ class CustomExercise(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     name = db.Column(db.String(100), nullable=False)
     category = db.Column(db.String(20), default='free')
+
+
+# ─── XP y Rangos ────────────────────────────────────────────────────
+
+class PlayerXP(db.Model):
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
+    xp = db.Column(db.Integer, default=0)
+    level = db.Column(db.Integer, default=0)
+    rank = db.Column(db.String(20), default='bronze')
+
+
+RANK_CONFIG = [
+    ('bronze',  'Bronce',    '#cd7f32', 0),
+    ('silver',  'Plata',     '#c0c0c0', 5),
+    ('gold',    'Oro',       '#ffd700', 15),
+    ('platinum','Platino',   '#e5e4e2', 30),
+    ('emerald', 'Esmeralda', '#50c878', 50),
+    ('ruby',    'Rubí',      '#e0115f', 75),
+]
+
+
+def xp_for_level(level):
+    return 50 * level * (level + 1)
+
+
+def level_from_xp(total_xp):
+    return int((-1 + math.sqrt(1 + 4 * total_xp / 50)) / 2)
+
+
+def recalculate_xp(user_id):
+    sessions = TrainingSession.query.filter_by(user_id=user_id)\
+        .order_by(TrainingSession.date).all()
+    total_xp = 0
+    streak_count = 0
+    prev_date = None
+    for s in sessions:
+        if prev_date is not None:
+            diff = (s.date - prev_date).days
+            if diff == 1:
+                streak_count += 1
+            elif diff > 1:
+                streak_count = 0
+        else:
+            streak_count = 0
+        xp_gain = 200 if streak_count >= 2 else 100
+        total_xp += xp_gain
+        prev_date = s.date
+    level = level_from_xp(total_xp)
+    pxp = PlayerXP.query.get(user_id)
+    if pxp:
+        pxp.xp = total_xp
+        pxp.level = level
+    else:
+        pxp = PlayerXP(user_id=user_id, xp=total_xp, level=level)
+        db.session.add(pxp)
+    return pxp
+
+
+def calculate_rank(user_id, level=None, total_volume=None):
+    if level is None:
+        pxp = PlayerXP.query.get(user_id)
+        level = pxp.level if pxp else 0
+    if total_volume is None:
+        total_volume = db.session.query(func.sum(
+            ExerciseLog.sets * ExerciseLog.reps * ExerciseLog.weight_kg
+        )).join(TrainingSession).filter(
+            TrainingSession.user_id == user_id
+        ).scalar() or 0
+    rank_score = level + (total_volume / 50000)
+    for rid, rname, rcolor, threshold in reversed(RANK_CONFIG):
+        if rank_score >= threshold:
+            return rid
+    return 'bronze'
+
+
+def get_rank_config(rank_id):
+    for rid, rname, rcolor, _ in RANK_CONFIG:
+        if rid == rank_id:
+            return {'id': rid, 'name': rname, 'color': rcolor}
+    return {'id': 'bronze', 'name': 'Bronce', 'color': '#cd7f32'}
+
+
+def recalculate_all_xp():
+    for user in User.query.all():
+        pxp = PlayerXP.query.get(user.id)
+        if pxp:
+            continue
+        try:
+            recalculate_xp(user.id)
+        except Exception as e:
+            print(f'Error recalculating XP for {user.username}: {e}', file=sys.stderr)
+    db.session.commit()
+    for user in User.query.all():
+        pxp = PlayerXP.query.get(user.id)
+        if pxp:
+            vol = db.session.query(func.sum(
+                ExerciseLog.sets * ExerciseLog.reps * ExerciseLog.weight_kg
+            )).join(TrainingSession).filter(
+                TrainingSession.user_id == user.id
+            ).scalar() or 0
+            pxp.rank = calculate_rank(user.id, pxp.level, vol)
+    db.session.commit()
 
 
 # ─── Ejercicios predefinidos ────────────────────────────────────────
@@ -355,13 +460,25 @@ def dashboard():
     weekly_volume = get_weekly_volume(current_user.id, monday, sunday)
     last_weight = BodyWeight.query.filter_by(user_id=current_user.id)\
         .order_by(BodyWeight.date.desc()).first()
+    pxp = PlayerXP.query.get(current_user.id)
+    rank_info = get_rank_config(pxp.rank if pxp else 'bronze')
+    xp_current = pxp.xp if pxp else 0
+    xp_level = pxp.level if pxp else 0
+    xp_next = xp_for_level(xp_level + 1)
+    xp_prev = xp_for_level(xp_level)
+    xp_progress = xp_current - xp_prev
+    xp_needed = xp_next - xp_prev
+    xp_pct = (xp_progress / xp_needed * 100) if xp_needed > 0 else 0
     return render_template('dashboard.html',
         monday=monday, sunday=sunday, today=today,
         trained_count=trained_count, trained_dates=trained_dates,
         today_session=today_session, penalty=penalty,
         cumple=trained_count >= 5, week_days=week_days,
         day_names=day_names, streak=streak,
-        weekly_volume=weekly_volume, last_weight=last_weight)
+        weekly_volume=weekly_volume, last_weight=last_weight,
+        xp_data={'rank': rank_info, 'xp': xp_current, 'level': xp_level,
+                 'xp_next': xp_next, 'xp_progress': xp_progress,
+                 'xp_needed': xp_needed, 'xp_pct': xp_pct})
 
 
 # ─── Registrar sesión ───────────────────────────────────────────────
@@ -386,6 +503,8 @@ def registrar():
             user_id=current_user.id, date=session_date,
             duration_minutes=duration, notes=notes or None)
         db.session.add(session)
+        db.session.commit()
+        recalculate_xp(current_user.id)
         db.session.commit()
         flash('Sesión creada. Agrega tus ejercicios.')
         return redirect(url_for('ver_sesion', sesion_id=session.id))
@@ -449,6 +568,8 @@ def eliminar_ejercicio(ej_id):
     sesion_id = session.id
     db.session.delete(ej)
     db.session.commit()
+    recalculate_xp(current_user.id)
+    db.session.commit()
     return redirect(url_for('ver_sesion', sesion_id=sesion_id))
 
 
@@ -486,6 +607,8 @@ def eliminar_sesion(sesion_id):
     for c in session.comments:
         db.session.delete(c)
     db.session.delete(session)
+    db.session.commit()
+    recalculate_xp(current_user.id)
     db.session.commit()
     flash('Sesión eliminada')
     return redirect(url_for('dashboard'))
@@ -653,13 +776,116 @@ def progreso():
     try:
         results, monday, sunday, multa = all_users_week_progress()
         week_days = [(monday + timedelta(days=i)) for i in range(7)]
+        user_ranks = {}
+        for r in results:
+            uid = r['user'].id
+            pxp = PlayerXP.query.get(uid)
+            rank_id = pxp.rank if pxp else 'bronze'
+            cfg = get_rank_config(rank_id)
+            cfg['level'] = pxp.level if pxp else 0
+            user_ranks[uid] = cfg
         return render_template('progreso.html',
             results=results, monday=monday, sunday=sunday,
-            multa_por_dia=multa, week_days=week_days)
+            multa_por_dia=multa, week_days=week_days,
+            user_ranks=user_ranks)
     except Exception as e:
         print(f'Error en progreso: {e}', file=sys.stderr)
         flash('Error al cargar el progreso. Intenta de nuevo.')
         return redirect(url_for('dashboard'))
+
+
+# ─── Calendario ─────────────────────────────────────────────────────
+
+VIEW_NAMES = {'day': 'Día', 'week': 'Semana', 'month': 'Mes', 'year': 'Año'}
+
+@app.route('/calendario')
+@login_required
+def calendario():
+    return redirect(url_for('calendario_view', view='month',
+                            year=date.today().year, month=date.today().month, day=date.today().day))
+
+
+@app.route('/calendario/<view>/<int:year>/<int:month>/<int:day>')
+@login_required
+def calendario_view(view, year, month, day):
+    if view not in ('day', 'week', 'month', 'year'):
+        return redirect(url_for('calendario'))
+    try:
+        current_date = date(year, month, day)
+    except ValueError:
+        current_date = date.today()
+
+    sessions = TrainingSession.query.filter_by(user_id=current_user.id)\
+        .order_by(TrainingSession.date).all()
+    session_dates = {s.date for s in sessions}
+
+    pxp = PlayerXP.query.get(current_user.id)
+    rank_info = get_rank_config(pxp.rank if pxp else 'bronze')
+    xp_data = {'xp': pxp.xp if pxp else 0, 'level': pxp.level if pxp else 0,
+               'rank': rank_info}
+
+    ctx = {
+        'view': view, 'current_date': current_date,
+        'sessions': sessions, 'session_dates': session_dates,
+        'xp_data': xp_data, 'VIEW_NAMES': VIEW_NAMES,
+    }
+
+    if view == 'day':
+        day_sessions = [s for s in sessions if s.date == current_date]
+        ctx['day_sessions'] = day_sessions
+        ctx['prev'] = current_date - timedelta(days=1)
+        ctx['next'] = current_date + timedelta(days=1)
+        return render_template('calendario.html', **ctx)
+
+    elif view == 'week':
+        monday = current_date - timedelta(days=current_date.weekday())
+        sunday = monday + timedelta(days=6)
+        week_days = [monday + timedelta(days=i) for i in range(7)]
+        ctx['week_days'] = week_days
+        ctx['monday'] = monday
+        ctx['sunday'] = sunday
+        ctx['prev'] = monday - timedelta(days=7)
+        ctx['next'] = monday + timedelta(days=7)
+        return render_template('calendario.html', **ctx)
+
+    elif view == 'month':
+        first, last = month_range(year, month)
+        month_days = []
+        d = first
+        while d <= last:
+            month_days.append(d)
+            d += timedelta(days=1)
+        start_padding = first.weekday()
+        ctx['month_days'] = month_days
+        ctx['start_padding'] = start_padding
+        ctx['month'] = month
+        ctx['year'] = year
+        prev_m = month - 1 or 12
+        ctx['prev'] = date(year - 1 if month == 1 else year, prev_m, 1)
+        next_m = month + 1 if month < 12 else 1
+        ctx['next'] = date(year + 1 if month == 12 else year, next_m, 1)
+        ctx['month_name'] = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                             'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][month-1]
+        return render_template('calendario.html', **ctx)
+
+    elif view == 'year':
+        months = []
+        for m in range(1, 13):
+            first, last = month_range(year, m)
+            month_sessions = [s for s in sessions if first <= s.date <= last]
+            months.append({
+                'num': m,
+                'name': ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                         'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][m-1],
+                'count': len(month_sessions),
+                'days': len([d for d in range(1, (last - first).days + 2) if date(year, m, d) in session_dates]),
+            })
+        ctx['months'] = months
+        ctx['year'] = year
+        ctx['prev'] = date(year - 1, 1, 1)
+        ctx['next'] = date(year + 1, 1, 1)
+        ctx['year_sessions'] = len([s for s in sessions if s.date.year == year])
+        return render_template('calendario.html', **ctx)
 
 
 # ─── Admin ──────────────────────────────────────────────────────────
@@ -732,6 +958,9 @@ def admin_eliminar_usuario(user_id):
         db.session.delete(w)
     for ce in user.custom_exercises:
         db.session.delete(ce)
+    pxp = PlayerXP.query.get(user.id)
+    if pxp:
+        db.session.delete(pxp)
     db.session.delete(user)
     db.session.commit()
     flash(f'Usuario {user.username} eliminado')
@@ -760,6 +989,7 @@ def init_app():
         try:
             migrate_db()
             seed_exercises()
+            recalculate_all_xp()
         except Exception as e:
             print(f'Init error: {e}', file=sys.stderr)
 

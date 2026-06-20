@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="calendario">
+    <div class="cal-nav">
+        <a href="{{ url_for('calendario_view', view='day', year=prev.year, month=prev.month, day=prev.day) }}" class="cal-nav-btn">‹</a>
+        <div class="cal-title">
+            <h1>
+                {% if view == 'day' %}
+                    {{ current_date.strftime('%d') }} de {{ current_date.strftime('%B') }} {{ current_date.year }}
+                {% elif view == 'week' %}
+                    {{ monday.strftime('%d/%m') }} - {{ sunday.strftime('%d/%m') }}
+                {% elif view == 'month' %}
+                    {{ month_name }} {{ year }}
+                {% elif view == 'year' %}
+                    {{ year }}
+                {% endif %}
+            </h1>
+        </div>
+        <a href="{{ url_for('calendario_view', view='day', year=next.year, month=next.month, day=next.day) }}" class="cal-nav-btn">›</a>
+    </div>
+
+    <div class="cal-view-tabs">
+        {% for v, vn in VIEW_NAMES.items() %}
+            <a href="{{ url_for('calendario_view', view=v, year=current_date.year, month=current_date.month, day=current_date.day) }}"
+               class="cal-tab {{ 'active' if v == view }}">{{ vn }}</a>
+        {% endfor %}
+    </div>
+
+    {% if view == 'day' %}
+        <div class="cal-day-view">
+            <h2>{{ current_date.strftime('%A %d de %B %Y') }}</h2>
+            {% if day_sessions %}
+                {% for s in day_sessions %}
+                    <div class="cal-session-card">
+                        <div class="cal-session-header">
+                            <a href="{{ url_for('ver_sesion', sesion_id=s.id) }}" class="cal-sesion-link">
+                                {% if s.duration_minutes %}
+                                    🏋️ {{ s.duration_minutes }} min
+                                {% else %}
+                                    🏋️ Entrenamiento
+                                {% endif %}
+                            </a>
+                            <span class="cal-ex-count">{{ s.exercises|length }} ejercicios</span>
+                        </div>
+                        {% if s.notes %}
+                            <div class="cal-notes">{{ s.notes }}</div>
+                        {% endif %}
+                        <div class="cal-exercises">
+                            {% for e in s.exercises[:5] %}
+                                <span class="ex-tag">{{ e.name }}</span>
+                            {% endfor %}
+                            {% if s.exercises|length > 5 %}
+                                <span class="ex-tag">+{{ s.exercises|length - 5 }} más</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">No hay entrenamientos este día</div>
+            {% endif %}
+        </div>
+
+    {% elif view == 'week' %}
+        <div class="cal-week-view">
+            <table class="cal-week-table">
+                <thead>
+                    <tr>
+                        {% for d in week_days %}
+                            <th>{{ ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'][loop.index0] }} {{ d.strftime('%d') }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        {% for d in week_days %}
+                            <td class="cal-week-cell {{ 'today' if d == current_date }} {{ 'trained' if d in session_dates }}">
+                                {% if d in session_dates %}
+                                    {% set ds = sessions|selectattr('date', 'equalto', d)|first %}
+                                    <a href="{{ url_for('ver_sesion', sesion_id=ds.id) }}" class="cal-week-link">
+                                        <span class="cal-week-check">✓</span>
+                                        {% if ds.duration_minutes %}
+                                            <span class="cal-week-min">{{ ds.duration_minutes }}'</span>
+                                        {% endif %}
+                                        <span class="cal-week-ex">{{ ds.exercises|length }} ej.</span>
+                                    </a>
+                                {% endif %}
+                            </td>
+                        {% endfor %}
+                    </tr>
+                </tbody>
+            </table>
+            <div class="cal-week-summary">
+                {% set week_count = week_days|selectattr('__eq__', 'unused')|list|length %}
+                {% set week_trained = session_dates|select('in', week_days)|list|length %}
+                <span>Entrenaste {{ week_trained }}/7 días</span>
+            </div>
+        </div>
+
+    {% elif view == 'month' %}
+        <div class="cal-month-view">
+            <div class="cal-month-grid">
+                <div class="cal-month-header">Lun</div>
+                <div class="cal-month-header">Mar</div>
+                <div class="cal-month-header">Mié</div>
+                <div class="cal-month-header">Jue</div>
+                <div class="cal-month-header">Vie</div>
+                <div class="cal-month-header">Sáb</div>
+                <div class="cal-month-header">Dom</div>
+                {% for _ in range(start_padding) %}
+                    <div class="cal-month-day empty"></div>
+                {% endfor %}
+                {% for d in month_days %}
+                    <div class="cal-month-day {{ 'trained' if d in session_dates else '' }} {{ 'today' if d == current_date }}">
+                        <a href="{{ url_for('calendario_view', view='day', year=d.year, month=d.month, day=d.day) }}" class="cal-month-link">
+                            <span class="cal-month-num">{{ d.strftime('%d') }}</span>
+                            {% if d in session_dates %}
+                                <span class="cal-month-dot"></span>
+                            {% endif %}
+                        </a>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+    {% elif view == 'year' %}
+        <div class="cal-year-view">
+            <div class="cal-year-grid">
+                {% for m in months %}
+                    <div class="cal-year-month">
+                        <h3>{{ m.name[:3] }}</h3>
+                        <div class="cal-year-stat">{{ m.days }} días</div>
+                        <div class="cal-year-bar-bg">
+                            <div class="cal-year-bar-fill" style="width:{{ (m.days / 31 * 100)|int }}%;"></div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="cal-year-total">
+                Total: {{ year_sessions }} entrenamientos en {{ year }}
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
