@@ -275,6 +275,12 @@ def week_range():
     return monday, sunday
 
 
+def week_range_for_date(d):
+    monday = d - timedelta(days=d.weekday())
+    sunday = monday + timedelta(days=6)
+    return monday, sunday
+
+
 def month_range(year, month):
     first = date(year, month, 1)
     if month == 12:
@@ -323,8 +329,9 @@ def get_weekly_volume(user_id, monday, sunday):
     return total
 
 
-def all_users_week_progress():
-    monday, sunday = week_range()
+def all_users_week_progress(monday=None, sunday=None):
+    if monday is None or sunday is None:
+        monday, sunday = week_range()
     users = User.query.all()
     multa = get_multa()
     results = []
@@ -793,10 +800,19 @@ def exportar():
 # ─── Progreso grupal ────────────────────────────────────────────────
 
 @app.route('/progreso')
+@app.route('/progreso/<int:year>/<int:month>/<int:day>')
 @login_required
-def progreso():
+def progreso(year=None, month=None, day=None):
     try:
-        results, monday, sunday, multa = all_users_week_progress()
+        if year and month and day:
+            try:
+                ref_date = date(year, month, day)
+            except ValueError:
+                ref_date = date.today()
+        else:
+            ref_date = date.today()
+        monday, sunday = week_range_for_date(ref_date)
+        results, _, _, multa = all_users_week_progress(monday, sunday)
         week_days = [(monday + timedelta(days=i)) for i in range(7)]
         user_ranks = {}
         for r in results:
@@ -806,10 +822,13 @@ def progreso():
             cfg = get_rank_config(rank_id)
             cfg['level'] = pxp.level if pxp else 0
             user_ranks[uid] = cfg
+        prev_monday = monday - timedelta(days=7)
+        next_monday = monday + timedelta(days=7)
         return render_template('progreso.html',
             results=results, monday=monday, sunday=sunday,
             multa_por_dia=multa, week_days=week_days,
-            user_ranks=user_ranks)
+            user_ranks=user_ranks,
+            prev_monday=prev_monday, next_monday=next_monday)
     except Exception as e:
         print(f'Error en progreso: {e}', file=sys.stderr)
         flash('Error al cargar el progreso. Intenta de nuevo.')
@@ -997,6 +1016,14 @@ def stats(user_id):
     body_weights = BodyWeight.query.filter_by(user_id=user_id)\
         .order_by(BodyWeight.date.desc()).all()
 
+    favorite_exercises = db.session.query(
+        ExerciseLog.name,
+        func.count(ExerciseLog.id).label('count'),
+        func.sum(ExerciseLog.sets * ExerciseLog.reps * ExerciseLog.weight_kg).label('total_volume')
+    ).join(TrainingSession).filter(
+        TrainingSession.user_id == user_id
+    ).group_by(ExerciseLog.name).order_by(func.count(ExerciseLog.id).desc()).limit(5).all()
+
     return render_template('stats.html',
         target_user=user, rank_info=rank_info,
         xp=xp_current, level=xp_level,
@@ -1015,6 +1042,7 @@ def stats(user_id):
         max_count=max_count,
         recent_sessions=recent_sessions,
         body_weights=body_weights,
+        favorite_exercises=favorite_exercises,
         is_owner=(current_user.id == user_id))
 
 

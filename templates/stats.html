@@ -88,6 +88,19 @@
     </div>
     {% endif %}
 
+    {% if favorite_exercises %}
+    <div style="margin-top:10px;">
+        <h2 style="font-size:0.75rem;color:var(--text2);margin-bottom:4px;">🏋️ Ejercicios favoritos</h2>
+        {% for fe in favorite_exercises %}
+            <div style="display:flex;align-items:center;gap:8px;background:var(--bg2);border-radius:6px;padding:6px 10px;margin-bottom:3px;">
+                <span style="font-weight:600;font-size:0.8rem;flex:1;">{{ fe.name }}</span>
+                <span style="font-size:0.65rem;color:var(--text2);">{{ fe.count }} veces</span>
+                {% if fe.total_volume %}<span style="font-size:0.65rem;color:var(--warn);font-weight:600;">{{ fe.total_volume|int }} kg</span>{% endif %}
+            </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
     {% if body_weights %}
     <div style="margin-top:10px;">
         <h2 style="font-size:0.75rem;color:var(--text2);margin-bottom:4px;">⚖️ Peso</h2>

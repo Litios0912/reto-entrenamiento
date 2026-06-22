@@ -1,8 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="progreso">
-    <h1>Progreso del grupo</h1>
-    <p class="week-range">{{ monday.strftime('%d/%m') }} - {{ sunday.strftime('%d/%m') }}</p>
+    <div class="cal-nav">
+        <a href="{{ url_for('progreso', year=prev_monday.year, month=prev_monday.month, day=prev_monday.day) }}" class="cal-nav-btn">‹</a>
+        <div style="text-align:center;">
+            <h1>Progreso del grupo</h1>
+            <p class="week-range">{{ monday.strftime('%d/%m') }} - {{ sunday.strftime('%d/%m') }}</p>
+        </div>
+        <a href="{{ url_for('progreso', year=next_monday.year, month=next_monday.month, day=next_monday.day) }}" class="cal-nav-btn">›</a>
+    </div>
 
     <div class="ranking-legend">
         {% for r in [{'id':'bronze','name':'Bronce','color':'#cd7f32'},{'id':'silver','name':'Plata','color':'#c0c0c0'},{'id':'gold','name':'Oro','color':'#ffd700'},{'id':'platinum','name':'Platino','color':'#e5e4e2'},{'id':'emerald','name':'Esmeralda','color':'#50c878'},{'id':'ruby','name':'Rubí','color':'#e0115f'}] %}
